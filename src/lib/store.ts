@@ -10,7 +10,7 @@ export const unitLabel = (unit: Unit) => unit
 
 export const demoState: AppState = {
   settings: {
-    name: 'Fresh Sabzi Store', owner: 'Owner Name', address: 'Main Market, Your City', phone: '9876543210', language: 'en', receiptSize: '80mm', defaultLowStockKg: 5, printHindi: true
+    name: 'Fresh Sabzi Store', owner: 'Owner Name', address: 'Main Market, Your City', phone: '9876543210', language: 'en', receiptSize: '80mm', defaultLowStockKg: 5, printHindi: true, upiId: '', showUpiOnReceipt: false, receiptFooter: 'Thank you! धन्यवाद!'
   },
   vegetables: [
     { id: 'v1', name: 'Tomato', hindiName: 'टमाटर', category: 'Vegetables', unit: 'kg', barcode: 'TOM', purchaseRate: 24, sellingRate: 35, stock: 32, lowStock: 5, wastagePercent: 4, active: true, lastUpdated: now() },
@@ -26,14 +26,15 @@ export const demoState: AppState = {
   suppliers: [
     { id: 's1', name: 'Azadpur Mandi Supplier', phone: '9000000000', address: 'Mandi' }
   ],
-  sales: [], purchases: [], expenses: [], stockLogs: [], payments: [], billCounter: 1
+  sales: [], purchases: [], expenses: [], stockLogs: [], payments: [], billCounter: 1, lastBackupAt: ''
 }
 
 export const loadState = (): AppState => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return demoState
-    return { ...demoState, ...JSON.parse(raw) }
+    const parsed = JSON.parse(raw)
+    return { ...demoState, ...parsed, settings: { ...demoState.settings, ...(parsed.settings || {}) } }
   } catch {
     return demoState
   }
@@ -56,6 +57,14 @@ export const downloadBlob = (blob: Blob, filename: string) => {
   a.click()
   URL.revokeObjectURL(a.href)
 }
+
+export const downloadBackup = (state: AppState) => {
+  const backupState = { ...state, lastBackupAt: now() }
+  downloadBlob(new Blob([JSON.stringify(backupState, null, 2)], { type: 'application/json' }), `vegetable-shop-backup-${today()}.json`)
+  return backupState
+}
+
+export const hasBackupToday = (state: AppState) => Boolean(state.lastBackupAt && state.lastBackupAt.slice(0, 10) === today())
 
 export const exportCsv = (rows: any[], filename: string) => {
   if (!rows.length) return alert('No data to export')

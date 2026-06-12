@@ -12,7 +12,11 @@ export interface ShopSettings {
   receiptSize: '58mm' | '80mm'
   defaultLowStockKg: number
   printHindi: boolean
+  upiId: string
+  showUpiOnReceipt: boolean
+  receiptFooter: string
 }
+
 
 export interface Vegetable {
   id: string
@@ -132,4 +136,6 @@ export interface AppState {
   stockLogs: StockLog[]
   payments: Payment[]
   billCounter: number
+  lastBackupAt?: string
 }
+

@@ -19,6 +19,20 @@ declare global {
         hasState: boolean
         hasBackupToday: boolean
         lastBackup: { name: string; path: string; mtimeMs: number } | null
+        schemaVersion: string
+        normalizedAt: string
+        normalizedCounts: {
+          vegetables: number
+          customers: number
+          suppliers: number
+          sales: number
+          saleItems: number
+          purchases: number
+          purchaseItems: number
+          payments: number
+          expenses: number
+          stockLogs: number
+        }
       }>
       chooseBackupDir: () => Promise<string | null>
       setBackupDir: (dir: string) => Promise<string>

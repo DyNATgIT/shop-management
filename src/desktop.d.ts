@@ -13,10 +13,16 @@ declare global {
         dbPath: string
         dataDir: string
         backupDir: string
+        defaultBackupDir: string
+        customBackupDir: string
+        hasCustomBackupDir: boolean
         hasState: boolean
         hasBackupToday: boolean
         lastBackup: { name: string; path: string; mtimeMs: number } | null
       }>
+      chooseBackupDir: () => Promise<string | null>
+      setBackupDir: (dir: string) => Promise<string>
+      resetBackupDir: () => Promise<string>
     }
   }
 }

@@ -18,6 +18,11 @@ export interface ShopSettings {
   supabaseUrl: string
   supabaseAnonKey: string
   cloudShopId: string
+  cloudEmail: string
+  cloudUserId: string
+  cloudAccessToken: string
+  cloudRefreshToken: string
+  lastCloudSyncAt: string
   cloudSyncEnabled: boolean
 }
 

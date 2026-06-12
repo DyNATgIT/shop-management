@@ -31,6 +31,8 @@ export interface ShopSettings {
   autoCloudPushMinutes: number
   lastAutoCloudPushAt: string
   cloudSyncEnabled: boolean
+  ownerPinEnabled: boolean
+  ownerPin: string
 }
 
 

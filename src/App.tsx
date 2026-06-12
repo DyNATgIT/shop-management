@@ -129,7 +129,7 @@ async function pushStateToCloud(state: AppState, settings: any) {
   const customerMap = byLocal(customers)
   const suppliers = await upsertCloudRows(settings, 'suppliers', state.suppliers.map(sup => ({ shop_id: shopId, local_id: sup.id, name: sup.name, phone: sup.phone, address: sup.address, device_id: 'desktop' })))
   const supplierMap = byLocal(suppliers)
-  const sales = await upsertCloudRows(settings, 'sales', state.sales.map(sale => ({ shop_id: shopId, local_id: sale.id, bill_no: sale.billNo, date: sale.date, customer_id: customerMap.get(sale.customerId) || null, customer_local_id: sale.customerId || null, customer_name: sale.customerName, customer_phone: sale.customerPhone, subtotal: sale.subtotal, discount: sale.discount, round_off: sale.roundOff, total: sale.total, paid: sale.paid, due: sale.due, payment_mode: sale.paymentMode, device_id: 'desktop' })))
+  const sales = await upsertCloudRows(settings, 'sales', state.sales.map(sale => ({ shop_id: shopId, local_id: sale.id, bill_no: sale.billNo, date: sale.date, customer_id: customerMap.get(sale.customerId) || null, customer_local_id: sale.customerId || null, customer_name: sale.customerName, customer_phone: sale.customerPhone, subtotal: sale.subtotal, discount: sale.discount, round_off: sale.roundOff, total: sale.total, paid: sale.paid, due: sale.due, payment_mode: sale.paymentMode, cancelled_at: sale.cancelledAt || null, device_id: 'desktop' })))
   const saleMap = byLocal(sales)
   await upsertCloudRows(settings, 'sale_items', state.sales.flatMap(sale => (sale.items || []).map((item, index) => ({ shop_id: shopId, local_id: `${sale.id}-${index}-${item.vegetableId}`, sale_id: saleMap.get(sale.id), sale_local_id: sale.id, vegetable_id: vegMap.get(item.vegetableId) || null, vegetable_local_id: item.vegetableId, name: item.name, hindi_name: item.hindiName, unit: item.unit, qty: item.qty, rate: item.rate, discount: item.discount, device_id: 'desktop' }))).filter(item => item.sale_id))
   const purchases = await upsertCloudRows(settings, 'purchases', state.purchases.map(purchase => ({ shop_id: shopId, local_id: purchase.id, date: purchase.date, supplier_id: supplierMap.get(purchase.supplierId) || null, supplier_local_id: purchase.supplierId || null, supplier_name: purchase.supplierName, total: purchase.total, paid: purchase.paid, due: purchase.due, device_id: 'desktop' })))
@@ -175,7 +175,7 @@ function AutoCloudPush({ s, patch }: { s: AppState, patch: any }) {
 function sameDay(date: string) { return new Date(date).toDateString() === new Date().toDateString() }
 
 function Dashboard({ s, patch, t, ownerUnlocked }: any) {
-  const todaySales = s.sales.filter((x: any) => sameDay(x.date))
+  const todaySales = s.sales.filter((x: any) => !x.cancelledAt && sameDay(x.date))
   const todayPurchases = s.purchases.filter((x: any) => sameDay(x.date))
   const todayExpenses = s.expenses.filter((x: any) => sameDay(x.date))
   const low = s.vegetables.filter((v: Vegetable) => v.active && v.stock <= v.lowStock)
@@ -186,7 +186,7 @@ function Dashboard({ s, patch, t, ownerUnlocked }: any) {
     <DatabaseStatus compact settings={s.settings} />
     <div className="metrics"><Metric title={t.todaySales} value={money(todaySales.reduce((a: number, x: any) => a + x.total, 0))}/><Metric title={t.billsToday} value={String(todaySales.length)} tone="green"/>{ownerUnlocked ? <Metric title={t.stockValue} value={money(stockValue)} tone="amber"/> : <Metric title={t.products} value={String(s.vegetables.length)} tone="amber"/>}{ownerUnlocked ? <Metric title={t.customerDue} value={money(due)} tone="red"/> : <Metric title={t.lowStock} value={String(low.length)} tone="red"/>}</div>
     <div className="grid2"><Card className="pad"><h2>{t.lowStock}</h2>{low.length ? low.map((v: Vegetable) => <div className="list-row" key={v.id}><span>{v.hindiName} / {v.name}</span><b className="red">{v.stock} {v.unit}</b></div>) : <p className="muted">{t.freshStock}</p>}</Card><Card className="pad"><h2>{t.dailySummary}</h2><div className="list-row"><span>{t.todaySales}</span><b>{money(todaySales.reduce((a: number, x: any) => a + x.total, 0))}</b></div>{ownerUnlocked ? <><div className="list-row"><span>{t.purchases}</span><b>{money(todayPurchases.reduce((a: number, x: any) => a + x.total, 0))}</b></div><div className="list-row"><span>{t.expense}</span><b>{money(todayExpenses.reduce((a: number, x: any) => a + x.amount, 0))}</b></div></> : <p className="muted">Purchase and expense totals are owner-only.</p>}</Card></div>
-    <Card className="pad"><h2>{t.recentBills}</h2><Table headers={['Bill', t.customer, t.total, t.paymentMode]} rows={s.sales.slice(0, 8).map((x: any) => [x.billNo, x.customerName, ownerUnlocked ? money(x.total) : 'Locked', x.paymentMode])}/></Card>
+    <Card className="pad"><h2>{t.recentBills}</h2><Table headers={['Bill', t.customer, t.total, t.paymentMode]} rows={s.sales.slice(0, 8).map((x: any) => [x.cancelledAt ? `${x.billNo} (Cancelled)` : x.billNo, x.customerName, ownerUnlocked ? money(x.total) : 'Locked', x.paymentMode])}/></Card>
   </div>
 }
 
@@ -350,11 +350,40 @@ function Reports({ s, patch, t }: { s: AppState, patch: any, t: any }) {
   const [closingDate, setClosingDate] = useState(today())
   const isSelectedDay = (date: string) => new Date(date).toISOString().slice(0, 10) === closingDate
 
-  const revenue = s.sales.reduce((a, x) => a + x.total, 0)
-  const purchaseCost = s.sales.reduce((sum, sale) => sum + sale.items.reduce((x, item) => { const v = s.vegetables.find(v => v.id === item.vegetableId); return x + (v?.purchaseRate || 0) * item.qty }, 0), 0)
+  const activeSales = s.sales.filter(x => !x.cancelledAt)
+  const revenue = activeSales.reduce((a, x) => a + x.total, 0)
+  const purchaseCost = activeSales.reduce((sum, sale) => sum + sale.items.reduce((x, item) => { const v = s.vegetables.find(v => v.id === item.vegetableId); return x + (v?.purchaseRate || 0) * item.qty }, 0), 0)
   const expenses = s.expenses.reduce((a, e) => a + e.amount, 0)
+  const cancelSale = (saleId: string) => {
+    const sale = s.sales.find(x => x.id === saleId)
+    if (!sale || sale.cancelledAt) return
+    const reason = prompt(`Reason for cancelling ${sale.billNo}?`, 'Customer return / wrong bill') || 'Cancelled'
+    if (!confirm(`Cancel ${sale.billNo}? Stock will be restored and customer due adjusted.`)) return
+    patch((old: AppState) => {
+      const currentSale = old.sales.find(x => x.id === saleId)
+      if (!currentSale || currentSale.cancelledAt) return old
+      const cancelledAt = now()
+      return {
+        ...old,
+        sales: old.sales.map(x => x.id === saleId ? { ...x, cancelledAt, cancelReason: reason } : x),
+        vegetables: old.vegetables.map(v => {
+          const item = currentSale.items.find(i => i.vegetableId === v.id)
+          return item ? { ...v, stock: Number((v.stock + item.qty).toFixed(2)), lastUpdated: cancelledAt } : v
+        }),
+        customers: currentSale.customerId ? old.customers.map(c => c.id === currentSale.customerId ? { ...c, balance: Math.max(0, c.balance - currentSale.due) } : c) : old.customers,
+        stockLogs: [
+          ...currentSale.items.map(item => {
+            const veg = old.vegetables.find(v => v.id === item.vegetableId)
+            const before = veg?.stock || 0
+            return makeStockLog(item.vegetableId, item.name, 'RETURN', item.qty, before, `Cancel ${currentSale.billNo}: ${reason}`)
+          }),
+          ...old.stockLogs
+        ]
+      }
+    })
+  }
 
-  const daySales = s.sales.filter(x => isSelectedDay(x.date))
+  const daySales = activeSales.filter(x => isSelectedDay(x.date))
   const dayPurchases = s.purchases.filter(x => isSelectedDay(x.date))
   const dayExpenses = s.expenses.filter(x => isSelectedDay(x.date))
   const dayWastage = s.stockLogs.filter(x => x.type === 'WASTAGE' && isSelectedDay(x.date))
@@ -381,7 +410,7 @@ function Reports({ s, patch, t }: { s: AppState, patch: any, t: any }) {
   const lowStock = s.vegetables.filter(v => v.stock <= v.lowStock)
 
   const customerLedger = [
-    ...s.sales.map(x => ({ date: x.date, party: x.customerName, type: 'Bill', ref: x.billNo, debit: x.total, credit: x.paid, due: x.due })),
+    ...s.sales.map(x => ({ date: x.date, party: x.customerName, type: x.cancelledAt ? 'Cancelled Bill' : 'Bill', ref: x.billNo, debit: x.cancelledAt ? 0 : x.total, credit: x.cancelledAt ? 0 : x.paid, due: x.cancelledAt ? 0 : x.due })),
     ...s.payments.filter(p => p.partyType === 'customer').map(p => ({ date: p.date, party: p.partyName, type: 'Payment', ref: p.note, debit: 0, credit: p.amount, due: 0 }))
   ].sort((a, b) => +new Date(b.date) - +new Date(a.date))
   const supplierLedger = s.purchases.map(x => ({ date: x.date, party: x.supplierName, type: 'Purchase', ref: x.id, debit: x.total, credit: x.paid, due: x.due })).sort((a, b) => +new Date(b.date) - +new Date(a.date))
@@ -421,7 +450,7 @@ function Reports({ s, patch, t }: { s: AppState, patch: any, t: any }) {
     <div className="grid2"><Card className="pad"><h2>Today's Bills</h2><Table headers={['Bill', t.customer, t.paymentMode, t.total, t.due]} rows={daySales.map(x => [x.billNo, x.customerName, x.paymentMode, money(x.total), money(x.due)])}/></Card><Card className="pad"><h2>Wastage Today</h2><Table headers={[t.name, t.qty, t.note]} rows={dayWastage.map(x => [x.vegetableName, Math.abs(x.qty), x.note])}/></Card></div>
     <Card className="pad"><h2>Low Stock at Closing</h2><Table headers={[t.name, t.stock, t.lowStockLevel]} rows={lowStock.map(v => [v.hindiName || v.name, `${v.stock} ${v.unit}`, `${v.lowStock} ${v.unit}`])}/></Card>
 
-    <div className="metrics"><Metric title={t.salesReport} value={money(revenue)}/><Metric title={t.purchaseReport} value={money(s.purchases.reduce((a, x) => a + x.total, 0))}/><Metric title={t.profitReport} value={money(revenue - purchaseCost - expenses)} tone="green"/><Metric title={t.stockLedger} value={String(s.stockLogs.length)} tone="amber"/></div><Card className="pad"><div className="toolbar"><Button variant="secondary" onClick={() => exportCsv(s.sales.map(x => ({ billNo: x.billNo, date: x.date, customer: x.customerName, total: x.total, paid: x.paid, due: x.due })), 'sales.csv')}>{t.salesReport} CSV</Button><Button variant="secondary" onClick={() => exportCsv(s.purchases.map(x => ({ date: x.date, supplier: x.supplierName, total: x.total, paid: x.paid, due: x.due })), 'purchases.csv')}>{t.purchaseReport} CSV</Button><Button variant="secondary" onClick={() => exportCsv(s.stockLogs, 'stock-ledger.csv')}>{t.stockLedger} CSV</Button><Button variant="secondary" onClick={() => exportCsv(customerLedger, 'customer-ledger.csv')}>Customer Ledger CSV</Button><Button variant="secondary" onClick={() => exportCsv(supplierLedger, 'supplier-ledger.csv')}>Supplier Ledger CSV</Button></div></Card><Card><Table headers={['Bill', t.date, t.customer, t.total, t.paid, t.due]} rows={s.sales.map(x => [x.billNo, new Date(x.date).toLocaleString(), x.customerName, money(x.total), money(x.paid), money(x.due)])}/></Card><Card className="pad"><h2>Customer Ledger / ग्राहक लेजर</h2><Table headers={[t.date, t.customer, 'Type', 'Ref', 'Bill', 'Paid', t.due]} rows={customerLedger.map(x => [new Date(x.date).toLocaleString(), x.party, x.type, x.ref, money(x.debit), money(x.credit), money(x.due)])}/></Card><Card className="pad"><h2>Supplier Ledger / सप्लायर लेजर</h2><Table headers={[t.date, t.supplier, 'Type', 'Purchase', 'Paid', t.due]} rows={supplierLedger.map(x => [new Date(x.date).toLocaleString(), x.party, x.type, money(x.debit), money(x.credit), money(x.due)])}/></Card></div>
+    <div className="metrics"><Metric title={t.salesReport} value={money(revenue)}/><Metric title={t.purchaseReport} value={money(s.purchases.reduce((a, x) => a + x.total, 0))}/><Metric title={t.profitReport} value={money(revenue - purchaseCost - expenses)} tone="green"/><Metric title={t.stockLedger} value={String(s.stockLogs.length)} tone="amber"/></div><Card className="pad"><div className="toolbar"><Button variant="secondary" onClick={() => exportCsv(s.sales.map(x => ({ billNo: x.billNo, date: x.date, customer: x.customerName, total: x.total, paid: x.paid, due: x.due })), 'sales.csv')}>{t.salesReport} CSV</Button><Button variant="secondary" onClick={() => exportCsv(s.purchases.map(x => ({ date: x.date, supplier: x.supplierName, total: x.total, paid: x.paid, due: x.due })), 'purchases.csv')}>{t.purchaseReport} CSV</Button><Button variant="secondary" onClick={() => exportCsv(s.stockLogs, 'stock-ledger.csv')}>{t.stockLedger} CSV</Button><Button variant="secondary" onClick={() => exportCsv(customerLedger, 'customer-ledger.csv')}>Customer Ledger CSV</Button><Button variant="secondary" onClick={() => exportCsv(supplierLedger, 'supplier-ledger.csv')}>Supplier Ledger CSV</Button></div></Card><Card><Table headers={['Bill', t.date, t.customer, t.total, t.paid, t.due, 'Status', 'Action']} rows={s.sales.map(x => [x.billNo, new Date(x.date).toLocaleString(), x.customerName, money(x.total), money(x.paid), money(x.due), x.cancelledAt ? `Cancelled: ${x.cancelReason || ''}` : 'Active', x.cancelledAt ? '-' : <Button variant="danger" onClick={() => cancelSale(x.id)}>Cancel</Button>])}/></Card><Card className="pad"><h2>Customer Ledger / ग्राहक लेजर</h2><Table headers={[t.date, t.customer, 'Type', 'Ref', 'Bill', 'Paid', t.due]} rows={customerLedger.map(x => [new Date(x.date).toLocaleString(), x.party, x.type, x.ref, money(x.debit), money(x.credit), money(x.due)])}/></Card><Card className="pad"><h2>Supplier Ledger / सप्लायर लेजर</h2><Table headers={[t.date, t.supplier, 'Type', 'Purchase', 'Paid', t.due]} rows={supplierLedger.map(x => [new Date(x.date).toLocaleString(), x.party, x.type, money(x.debit), money(x.credit), money(x.due)])}/></Card></div>
 }
 
 
@@ -698,7 +727,7 @@ function AppSettings({ s, patch, t, onLockOwner }: { s: AppState, patch: any, t:
         vegetables: vegetableRows.map(v => ({ id: v.local_id || v.id, name: v.name || '', hindiName: v.hindi_name || '', category: v.category || '', unit: v.unit || 'kg', barcode: v.barcode || '', purchaseRate: Number(v.purchase_rate || 0), sellingRate: Number(v.selling_rate || 0), stock: Number(v.stock || 0), lowStock: Number(v.low_stock || 0), wastagePercent: Number(v.wastage_percent || 0), active: v.active !== false, lastUpdated: v.updated_at || now() })),
         customers: customerRows.map(c => ({ id: c.local_id || c.id, name: c.name || '', phone: c.phone || '', address: c.address || '', balance: Number(c.balance || 0) })),
         suppliers: supplierRows.map(sup => ({ id: sup.local_id || sup.id, name: sup.name || '', phone: sup.phone || '', address: sup.address || '' })),
-        sales: saleRows.map(sale => ({ id: sale.local_id || sale.id, billNo: sale.bill_no || '', date: sale.date || now(), customerId: sale.customer_local_id || '', customerName: sale.customer_name || '', customerPhone: sale.customer_phone || '', subtotal: Number(sale.subtotal || 0), discount: Number(sale.discount || 0), roundOff: Number(sale.round_off || 0), total: Number(sale.total || 0), paid: Number(sale.paid || 0), due: Number(sale.due || 0), paymentMode: sale.payment_mode || 'Cash', items: (saleItemsBySale.get(sale.local_id || sale.id) || []).map(item => ({ vegetableId: item.vegetable_local_id || '', name: item.name || '', hindiName: item.hindi_name || '', unit: item.unit || 'kg', qty: Number(item.qty || 0), rate: Number(item.rate || 0), discount: Number(item.discount || 0) })) })),
+        sales: saleRows.map(sale => ({ id: sale.local_id || sale.id, billNo: sale.bill_no || '', date: sale.date || now(), customerId: sale.customer_local_id || '', customerName: sale.customer_name || '', customerPhone: sale.customer_phone || '', subtotal: Number(sale.subtotal || 0), discount: Number(sale.discount || 0), roundOff: Number(sale.round_off || 0), total: Number(sale.total || 0), paid: Number(sale.paid || 0), due: Number(sale.due || 0), paymentMode: sale.payment_mode || 'Cash', cancelledAt: sale.cancelled_at || undefined, cancelReason: sale.cancel_reason || undefined, items: (saleItemsBySale.get(sale.local_id || sale.id) || []).map(item => ({ vegetableId: item.vegetable_local_id || '', name: item.name || '', hindiName: item.hindi_name || '', unit: item.unit || 'kg', qty: Number(item.qty || 0), rate: Number(item.rate || 0), discount: Number(item.discount || 0) })) })),
         purchases: purchaseRows.map(purchase => ({ id: purchase.local_id || purchase.id, date: purchase.date || now(), supplierId: purchase.supplier_local_id || '', supplierName: purchase.supplier_name || '', total: Number(purchase.total || 0), paid: Number(purchase.paid || 0), due: Number(purchase.due || 0), items: (purchaseItemsByPurchase.get(purchase.local_id || purchase.id) || []).map(item => ({ vegetableId: item.vegetable_local_id || '', name: item.name || '', qty: Number(item.qty || 0), rate: Number(item.rate || 0) })) })),
         payments: paymentRows.map(payment => ({ id: payment.local_id || payment.id, date: payment.date || now(), partyType: payment.party_type || 'customer', partyId: payment.party_local_id || '', partyName: payment.party_name || '', amount: Number(payment.amount || 0), mode: payment.mode || 'Cash', note: payment.note || '' })),
         expenses: expenseRows.map(expense => ({ id: expense.local_id || expense.id, date: expense.date || now(), title: expense.title || '', amount: Number(expense.amount || 0), note: expense.note || '' })),

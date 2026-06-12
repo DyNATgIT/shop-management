@@ -93,6 +93,8 @@ export interface Sale {
   paid: number
   due: number
   paymentMode: PaymentMode
+  cancelledAt?: string
+  cancelReason?: string
 }
 
 export interface PurchaseItem {

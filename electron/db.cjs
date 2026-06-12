@@ -25,6 +25,35 @@ function getDbPath() {
   return path.join(getDataDir(), 'shop.db')
 }
 
+function getTodayStamp() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function getTimestamp() {
+  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+}
+
+function listBackups() {
+  ensureDir(getBackupDir())
+  return fs.readdirSync(getBackupDir())
+    .filter(name => name.endsWith('.db'))
+    .map(name => ({
+      name,
+      path: path.join(getBackupDir(), name),
+      mtimeMs: fs.statSync(path.join(getBackupDir(), name)).mtimeMs
+    }))
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+}
+
+function getLastBackup() {
+  return listBackups()[0] || null
+}
+
+function hasBackupForToday() {
+  const today = getTodayStamp()
+  return listBackups().some(file => file.name.includes(today))
+}
+
 function getDb() {
   if (db) return db
   ensureDir(getDataDir())
@@ -68,23 +97,35 @@ function setAppState(state) {
   return { ok: true, updatedAt }
 }
 
-function backupDatabase() {
+function backupDatabase(prefix = 'shop') {
   const source = getDbPath()
   ensureDir(getBackupDir())
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const target = path.join(getBackupDir(), `shop-${stamp}.db`)
+  if (!fs.existsSync(source)) getDb()
+  const target = path.join(getBackupDir(), `${prefix}-${getTimestamp()}.db`)
   // Ensure WAL changes are checkpointed before copy.
   getDb().pragma('wal_checkpoint(FULL)')
   fs.copyFileSync(source, target)
   return target
 }
 
+function ensureDailyBackup() {
+  getDb()
+  const state = getAppState()
+  if (!state) return { created: false, reason: 'no-state-yet', path: null, lastBackup: getLastBackup() }
+  if (hasBackupForToday()) return { created: false, reason: 'already-exists', path: null, lastBackup: getLastBackup() }
+  const backupPath = backupDatabase(`auto-${getTodayStamp()}`)
+  return { created: true, reason: 'created', path: backupPath, lastBackup: getLastBackup() }
+}
+
 function getInfo() {
+  const lastBackup = getLastBackup()
   return {
     dbPath: getDbPath(),
     dataDir: getDataDir(),
     backupDir: getBackupDir(),
-    hasState: Boolean(getAppState())
+    hasState: Boolean(getAppState()),
+    hasBackupToday: hasBackupForToday(),
+    lastBackup: lastBackup ? { name: lastBackup.name, path: lastBackup.path, mtimeMs: lastBackup.mtimeMs } : null
   }
 }
 
@@ -92,5 +133,6 @@ module.exports = {
   getAppState,
   setAppState,
   backupDatabase,
+  ensureDailyBackup,
   getInfo
 }

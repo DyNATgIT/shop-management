@@ -23,6 +23,13 @@ export interface ShopSettings {
   cloudAccessToken: string
   cloudRefreshToken: string
   lastCloudSyncAt: string
+  lastCloudPushAt: string
+  lastCloudPullAt: string
+  lastCloudSyncStatus: string
+  lastCloudSyncMessage: string
+  autoCloudPushEnabled: boolean
+  autoCloudPushMinutes: number
+  lastAutoCloudPushAt: string
   cloudSyncEnabled: boolean
 }
 

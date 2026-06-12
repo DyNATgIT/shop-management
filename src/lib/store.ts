@@ -10,7 +10,7 @@ export const unitLabel = (unit: Unit) => unit
 
 export const demoState: AppState = {
   settings: {
-    name: 'Fresh Sabzi Store', owner: 'Owner Name', address: 'Main Market, Your City', phone: '9876543210', language: 'en', receiptSize: '80mm', defaultLowStockKg: 5, printHindi: true, upiId: '', showUpiOnReceipt: false, receiptFooter: 'Thank you! धन्यवाद!', supabaseUrl: 'https://bthabwdutxntytevsled.supabase.co', supabaseAnonKey: '', cloudShopId: '', cloudEmail: '', cloudUserId: '', cloudAccessToken: '', cloudRefreshToken: '', lastCloudSyncAt: '', cloudSyncEnabled: false
+    name: 'Fresh Sabzi Store', owner: 'Owner Name', address: 'Main Market, Your City', phone: '9876543210', language: 'en', receiptSize: '80mm', defaultLowStockKg: 5, printHindi: true, upiId: '', showUpiOnReceipt: false, receiptFooter: 'Thank you! धन्यवाद!', supabaseUrl: 'https://bthabwdutxntytevsled.supabase.co', supabaseAnonKey: '', cloudShopId: '', cloudEmail: '', cloudUserId: '', cloudAccessToken: '', cloudRefreshToken: '', lastCloudSyncAt: '', lastCloudPushAt: '', lastCloudPullAt: '', lastCloudSyncStatus: '', lastCloudSyncMessage: '', autoCloudPushEnabled: false, autoCloudPushMinutes: 10, lastAutoCloudPushAt: '', cloudSyncEnabled: false
   },
   vegetables: [
     { id: 'v1', name: 'Tomato', hindiName: 'टमाटर', category: 'Vegetables', unit: 'kg', barcode: 'TOM', purchaseRate: 24, sellingRate: 35, stock: 32, lowStock: 5, wastagePercent: 4, active: true, lastUpdated: now() },

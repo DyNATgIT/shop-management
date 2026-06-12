@@ -266,6 +266,20 @@ create index if not exists idx_expenses_shop_date on public.expenses(shop_id, da
 create index if not exists idx_stock_logs_shop_date on public.stock_logs(shop_id, date);
 
 -- Triggers
+-- Drop triggers first so this schema can be re-run safely.
+drop trigger if exists set_shops_updated_at on public.shops;
+drop trigger if exists set_vegetables_updated_at on public.vegetables;
+drop trigger if exists set_customers_updated_at on public.customers;
+drop trigger if exists set_suppliers_updated_at on public.suppliers;
+drop trigger if exists set_sales_updated_at on public.sales;
+drop trigger if exists set_sale_items_updated_at on public.sale_items;
+drop trigger if exists set_purchases_updated_at on public.purchases;
+drop trigger if exists set_purchase_items_updated_at on public.purchase_items;
+drop trigger if exists set_payments_updated_at on public.payments;
+drop trigger if exists set_expenses_updated_at on public.expenses;
+drop trigger if exists set_stock_logs_updated_at on public.stock_logs;
+drop trigger if exists set_sync_devices_updated_at on public.sync_devices;
+
 create trigger set_shops_updated_at before update on public.shops for each row execute function public.set_updated_at();
 create trigger set_vegetables_updated_at before update on public.vegetables for each row execute function public.set_updated_at();
 create trigger set_customers_updated_at before update on public.customers for each row execute function public.set_updated_at();
@@ -305,6 +319,26 @@ returns boolean as $$
 $$ language sql stable security definer;
 
 -- Basic shop access policies
+-- Drop policies first so this schema can be re-run safely.
+drop policy if exists "Users can view their shops" on public.shops;
+drop policy if exists "Users can update their shops" on public.shops;
+drop policy if exists "Authenticated users can create shops" on public.shops;
+
+drop policy if exists "Users can view shop memberships" on public.shop_users;
+drop policy if exists "Users can create own membership" on public.shop_users;
+
+drop policy if exists "vegetables shop access" on public.vegetables;
+drop policy if exists "customers shop access" on public.customers;
+drop policy if exists "suppliers shop access" on public.suppliers;
+drop policy if exists "sales shop access" on public.sales;
+drop policy if exists "sale_items shop access" on public.sale_items;
+drop policy if exists "purchases shop access" on public.purchases;
+drop policy if exists "purchase_items shop access" on public.purchase_items;
+drop policy if exists "payments shop access" on public.payments;
+drop policy if exists "expenses shop access" on public.expenses;
+drop policy if exists "stock_logs shop access" on public.stock_logs;
+drop policy if exists "sync_devices shop access" on public.sync_devices;
+
 create policy "Users can view their shops" on public.shops for select using (public.user_has_shop_access(id));
 create policy "Users can update their shops" on public.shops for update using (public.user_has_shop_access(id));
 create policy "Authenticated users can create shops" on public.shops for insert with check (auth.uid() is not null);

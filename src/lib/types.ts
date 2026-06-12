@@ -33,6 +33,7 @@ export interface ShopSettings {
   cloudSyncEnabled: boolean
   ownerPinEnabled: boolean
   ownerPin: string
+  ownerPinHash: string
 }
 
 

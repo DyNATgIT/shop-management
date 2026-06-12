@@ -15,6 +15,10 @@ export interface ShopSettings {
   upiId: string
   showUpiOnReceipt: boolean
   receiptFooter: string
+  supabaseUrl: string
+  supabaseAnonKey: string
+  cloudShopId: string
+  cloudSyncEnabled: boolean
 }
 
 

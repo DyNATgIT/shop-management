@@ -354,7 +354,7 @@ function DatabaseStatus({ compact = false, settings }: { compact?: boolean, sett
 }
 
 function AppSettings({ s, patch, t }: { s: AppState, patch: any, t: any }) {
-  const [settings, setSettings] = useState(s.settings); const [expense, setExpense] = useState({ title: '', amount: 0, note: '' }); const [dbInfo, setDbInfo] = useState<any>(null); const [cloudTest, setCloudTest] = useState('')
+  const [settings, setSettings] = useState(s.settings); const [expense, setExpense] = useState({ title: '', amount: 0, note: '' }); const [dbInfo, setDbInfo] = useState<any>(null); const [cloudTest, setCloudTest] = useState(''); const [cloudPassword, setCloudPassword] = useState(''); const [syncing, setSyncing] = useState(false)
   const refreshDbInfo = () => window.desktopApp?.getDatabaseInfo?.().then(setDbInfo).catch(() => setDbInfo(null))
   useEffect(() => { refreshDbInfo() }, [])
   const backup = () => {
@@ -363,18 +363,132 @@ function AppSettings({ s, patch, t }: { s: AppState, patch: any, t: any }) {
   }
   const restore = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = async () => { try { const restored = JSON.parse(String(r.result)); localStorage.setItem(STORAGE_KEY, JSON.stringify(restored)); await window.desktopApp?.setAppState?.(restored); location.reload() } catch { alert('Invalid backup file') } }; r.readAsText(file) }
   const addExpense = () => { if (!expense.title || !expense.amount) return; patch((old: AppState) => ({ ...old, expenses: [{ id: id(), date: now(), ...expense }, ...old.expenses] })); setExpense({ title: '', amount: 0, note: '' }) }
+  const cloudHeaders = (token?: string) => ({ apikey: settings.supabaseAnonKey, Authorization: `Bearer ${token || settings.cloudAccessToken || settings.supabaseAnonKey}`, 'Content-Type': 'application/json' })
+  const saveCloudSettings = (nextSettings = settings) => patch((old: AppState) => ({ ...old, settings: nextSettings }))
   const testCloudConnection = async () => {
     setCloudTest('Testing...')
     try {
       if (!settings.supabaseUrl || !settings.supabaseAnonKey) { setCloudTest('Enter Supabase URL and anon key first'); return }
       const url = `${settings.supabaseUrl.replace(/\/$/, '')}/rest/v1/shops?select=id&limit=1`
-      const res = await fetch(url, { headers: { apikey: settings.supabaseAnonKey, Authorization: `Bearer ${settings.supabaseAnonKey}` } })
+      const res = await fetch(url, { headers: cloudHeaders() })
       setCloudTest(res.ok ? 'Connection OK. Schema/API reachable.' : `Connection failed: ${res.status} ${res.statusText}`)
     } catch (error) {
       setCloudTest(`Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
-  return <div className="space settings-page"><DatabaseStatus settings={s.settings} /><Card className="pad"><h2>{t.settings}</h2><div className="form-grid"><Input value={settings.name} onChange={e => setSettings({ ...settings, name: e.target.value })} placeholder="Shop Name"/><Input value={settings.owner} onChange={e => setSettings({ ...settings, owner: e.target.value })} placeholder="Owner"/><Input value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} placeholder={t.phone}/><Select value={settings.receiptSize} onChange={e => setSettings({ ...settings, receiptSize: e.target.value as any })}><option value="80mm">80mm</option><option value="58mm">58mm</option></Select><Input value={settings.upiId} onChange={e => setSettings({ ...settings, upiId: e.target.value })} placeholder="UPI ID e.g. shop@upi"/><label className="check-row"><input type="checkbox" checked={settings.showUpiOnReceipt} onChange={e => setSettings({ ...settings, showUpiOnReceipt: e.target.checked })}/> Show UPI placeholder on receipt</label><Input value={settings.receiptFooter} onChange={e => setSettings({ ...settings, receiptFooter: e.target.value })} placeholder="Receipt footer message"/><Textarea value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} placeholder={t.address}/><Button onClick={() => patch((old: AppState) => ({ ...old, settings }))}>{t.save}</Button></div></Card><Card className="pad"><h2>Cloud Sync Settings</h2><p className="muted">Supabase project configuration. Sync engine is coming next; this only stores/tests settings.</p><div className="form-grid"><Input value={settings.supabaseUrl} onChange={e => setSettings({ ...settings, supabaseUrl: e.target.value })} placeholder="Supabase URL"/><Input value={settings.supabaseAnonKey} onChange={e => setSettings({ ...settings, supabaseAnonKey: e.target.value })} placeholder="Supabase anon key"/><Input value={settings.cloudShopId} onChange={e => setSettings({ ...settings, cloudShopId: e.target.value })} placeholder="Cloud Shop ID"/><label className="check-row"><input type="checkbox" checked={settings.cloudSyncEnabled} onChange={e => setSettings({ ...settings, cloudSyncEnabled: e.target.checked })}/> Enable cloud sync when ready</label><Button onClick={() => patch((old: AppState) => ({ ...old, settings }))}>Save Cloud Settings</Button><Button variant="secondary" onClick={testCloudConnection}>Test Connection</Button></div>{cloudTest && <p className="muted">{cloudTest}</p>}</Card><Card className="pad"><h2>{t.expense}</h2><div className="form-grid"><Input placeholder={t.expense} value={expense.title} onChange={e => setExpense({ ...expense, title: e.target.value })}/><Input type="number" placeholder={t.amount} value={expense.amount} onChange={e => setExpense({ ...expense, amount: number(e.target.value) })}/><Input placeholder={t.note} value={expense.note} onChange={e => setExpense({ ...expense, note: e.target.value })}/><Button onClick={addExpense}>{t.add}</Button></div></Card>{dbInfo && <Card className="pad"><h2>SQLite Database</h2><p className="muted">Desktop data is now stored in SQLite.</p><div className="list-row"><span>Database</span><b>{dbInfo.dbPath}</b></div><div className="list-row"><span>Backup Folder</span><b>{dbInfo.backupDir}</b></div><div className="list-row"><span>Folder Type</span><b>{dbInfo.hasCustomBackupDir ? 'Custom' : 'Default'}</b></div><div className="list-row"><span>Today's SQLite backup</span><b>{dbInfo.hasBackupToday ? 'Done' : 'Not yet'}</b></div><div className="list-row"><span>Last SQLite backup</span><b>{dbInfo.lastBackup ? dbInfo.lastBackup.name : 'Never'}</b></div><div className="list-row"><span>Normalized at</span><b>{dbInfo.normalizedAt ? new Date(dbInfo.normalizedAt).toLocaleString() : 'Not yet'}</b></div>{dbInfo.normalizedCounts && <div><h3 className="mini-title">Normalized Table Counts</h3><div className="count-grid">{Object.entries(dbInfo.normalizedCounts).map(([key, value]) => <div key={key}><span>{key}</span><b>{String(value)}</b></div>)}</div></div>}<div className="toolbar"><Button variant="secondary" onClick={() => window.desktopApp?.chooseBackupDir?.().then(path => { if (path) alert(`Backup folder selected:\n${path}`); refreshDbInfo() })}>Choose Backup Folder</Button><Button variant="secondary" onClick={() => window.desktopApp?.resetBackupDir?.().then(path => { alert(`Backup folder reset:\n${path}`); refreshDbInfo() })}>Use Default Folder</Button><Button variant="secondary" onClick={() => window.desktopApp?.backupDatabase?.().then(path => { alert(`SQLite backup saved:\n${path}`); refreshDbInfo() })}>Backup SQLite DB</Button><Button variant="secondary" onClick={() => window.desktopApp?.ensureDailyBackup?.().then(result => { alert(result.created ? `Daily backup created:\n${result.path}` : `Daily backup check: ${result.reason}`); refreshDbInfo() })}>Check Daily Backup</Button></div></Card>}<Card className="pad"><h2>{t.backup}</h2><p className="muted">Last backup: {s.lastBackupAt ? new Date(s.lastBackupAt).toLocaleString() : 'Never'}</p><div className="toolbar"><Button variant="secondary" onClick={backup}>{t.backup}</Button><label className="btn secondary">{t.restore}<input type="file" accept=".json" hidden onChange={e => restore(e.target.files?.[0])}/></label><Button variant="danger" onClick={async () => { if (confirm('Reset all data?')) { localStorage.setItem(STORAGE_KEY, JSON.stringify(demoState)); await window.desktopApp?.setAppState?.(demoState); location.reload() } }}>{t.reset}</Button></div></Card></div>
+  const signUpCloud = async () => {
+    setCloudTest('Creating cloud account...')
+    try {
+      if (!settings.supabaseUrl || !settings.supabaseAnonKey || !settings.cloudEmail || !cloudPassword) { setCloudTest('Enter Supabase URL, anon key, email and password'); return }
+      const res = await fetch(`${settings.supabaseUrl.replace(/\/$/, '')}/auth/v1/signup`, { method: 'POST', headers: { apikey: settings.supabaseAnonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: settings.cloudEmail, password: cloudPassword }) })
+      const data = await res.json()
+      if (!res.ok) { setCloudTest(data?.msg || data?.message || `Sign up failed: ${res.status}`); return }
+      if (data.access_token) {
+        const next = { ...settings, cloudUserId: data.user?.id || '', cloudAccessToken: data.access_token, cloudRefreshToken: data.refresh_token || '' }
+        setSettings(next); saveCloudSettings(next); setCloudTest('Account created and signed in.')
+      } else {
+        setCloudTest('Account created. Check email confirmation if Supabase requires it, then sign in.')
+      }
+    } catch (error) { setCloudTest(`Sign up failed: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+  }
+  const signInCloud = async () => {
+    setCloudTest('Signing in...')
+    try {
+      if (!settings.supabaseUrl || !settings.supabaseAnonKey || !settings.cloudEmail || !cloudPassword) { setCloudTest('Enter Supabase URL, anon key, email and password'); return }
+      const res = await fetch(`${settings.supabaseUrl.replace(/\/$/, '')}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { apikey: settings.supabaseAnonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: settings.cloudEmail, password: cloudPassword }) })
+      const data = await res.json()
+      if (!res.ok) { setCloudTest(data?.error_description || data?.msg || data?.message || `Sign in failed: ${res.status}`); return }
+      const next = { ...settings, cloudUserId: data.user?.id || '', cloudAccessToken: data.access_token || '', cloudRefreshToken: data.refresh_token || '' }
+      setSettings(next); saveCloudSettings(next); setCloudTest('Signed in to Supabase.')
+    } catch (error) { setCloudTest(`Sign in failed: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+  }
+  const createCloudShop = async () => {
+    setCloudTest('Creating cloud shop...')
+    try {
+      if (!settings.cloudAccessToken || !settings.cloudUserId) { setCloudTest('Sign in first.'); return }
+      const base = settings.supabaseUrl.replace(/\/$/, '')
+      const res = await fetch(`${base}/rest/v1/rpc/create_shop_with_owner`, {
+        method: 'POST',
+        headers: cloudHeaders(settings.cloudAccessToken),
+        body: JSON.stringify({
+          p_name: settings.name,
+          p_owner: settings.owner,
+          p_address: settings.address,
+          p_phone: settings.phone,
+          p_upi_id: settings.upiId,
+          p_receipt_size: settings.receiptSize,
+          p_receipt_footer: settings.receiptFooter,
+          p_device_id: 'desktop'
+        })
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) { setCloudTest(data?.message || data?.hint || `Create shop failed: ${res.status}`); return }
+      const shopId = typeof data === 'string' ? data : data
+      if (!shopId) { setCloudTest('Shop creation returned no ID. Run updated schema.sql in Supabase.'); return }
+      const next = { ...settings, cloudShopId: shopId, cloudSyncEnabled: true }
+      setSettings(next); saveCloudSettings(next); setCloudTest(`Cloud shop connected: ${shopId}`)
+    } catch (error) { setCloudTest(`Create shop failed: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+  }
+
+  const upsertCloud = async (table: string, rows: any[], conflict = 'shop_id,local_id') => {
+    if (!rows.length) return []
+    const base = settings.supabaseUrl.replace(/\/$/, '')
+    const res = await fetch(`${base}/rest/v1/${table}?on_conflict=${encodeURIComponent(conflict)}`, {
+      method: 'POST',
+      headers: { ...cloudHeaders(settings.cloudAccessToken), Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify(rows)
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(data?.message || data?.hint || `${table} upsert failed: ${res.status}`)
+    return Array.isArray(data) ? data : []
+  }
+  const pushLocalToCloud = async () => {
+    setSyncing(true)
+    setCloudTest('Pushing local data to cloud...')
+    try {
+      if (!settings.supabaseUrl || !settings.supabaseAnonKey) throw new Error('Enter Supabase URL and anon key')
+      if (!settings.cloudAccessToken) throw new Error('Sign in first')
+      if (!settings.cloudShopId) throw new Error('Create/connect cloud shop first')
+      const shopId = settings.cloudShopId
+      const ts = new Date().toISOString()
+      const byLocal = (rows: any[]) => new Map(rows.map(row => [row.local_id, row.id]))
+
+      const vegetables = await upsertCloud('vegetables', s.vegetables.map(v => ({ shop_id: shopId, local_id: v.id, name: v.name, hindi_name: v.hindiName, category: v.category, unit: v.unit, barcode: v.barcode, purchase_rate: v.purchaseRate, selling_rate: v.sellingRate, stock: v.stock, low_stock: v.lowStock, wastage_percent: v.wastagePercent, active: v.active, device_id: 'desktop' })))
+      const vegMap = byLocal(vegetables)
+
+      const customers = await upsertCloud('customers', s.customers.map(c => ({ shop_id: shopId, local_id: c.id, name: c.name, phone: c.phone, address: c.address, balance: c.balance, device_id: 'desktop' })))
+      const customerMap = byLocal(customers)
+
+      const suppliers = await upsertCloud('suppliers', s.suppliers.map(sup => ({ shop_id: shopId, local_id: sup.id, name: sup.name, phone: sup.phone, address: sup.address, device_id: 'desktop' })))
+      const supplierMap = byLocal(suppliers)
+
+      const sales = await upsertCloud('sales', s.sales.map(sale => ({ shop_id: shopId, local_id: sale.id, bill_no: sale.billNo, date: sale.date, customer_id: customerMap.get(sale.customerId) || null, customer_local_id: sale.customerId || null, customer_name: sale.customerName, customer_phone: sale.customerPhone, subtotal: sale.subtotal, discount: sale.discount, round_off: sale.roundOff, total: sale.total, paid: sale.paid, due: sale.due, payment_mode: sale.paymentMode, device_id: 'desktop' })))
+      const saleMap = byLocal(sales)
+
+      const saleItems = s.sales.flatMap(sale => (sale.items || []).map((item, index) => ({ shop_id: shopId, local_id: `${sale.id}-${index}-${item.vegetableId}`, sale_id: saleMap.get(sale.id), sale_local_id: sale.id, vegetable_id: vegMap.get(item.vegetableId) || null, vegetable_local_id: item.vegetableId, name: item.name, hindi_name: item.hindiName, unit: item.unit, qty: item.qty, rate: item.rate, discount: item.discount, device_id: 'desktop' }))).filter(item => item.sale_id)
+      await upsertCloud('sale_items', saleItems)
+
+      const purchases = await upsertCloud('purchases', s.purchases.map(purchase => ({ shop_id: shopId, local_id: purchase.id, date: purchase.date, supplier_id: supplierMap.get(purchase.supplierId) || null, supplier_local_id: purchase.supplierId || null, supplier_name: purchase.supplierName, total: purchase.total, paid: purchase.paid, due: purchase.due, device_id: 'desktop' })))
+      const purchaseMap = byLocal(purchases)
+
+      const purchaseItems = s.purchases.flatMap(purchase => (purchase.items || []).map((item, index) => ({ shop_id: shopId, local_id: `${purchase.id}-${index}-${item.vegetableId}`, purchase_id: purchaseMap.get(purchase.id), purchase_local_id: purchase.id, vegetable_id: vegMap.get(item.vegetableId) || null, vegetable_local_id: item.vegetableId, name: item.name, qty: item.qty, rate: item.rate, device_id: 'desktop' }))).filter(item => item.purchase_id)
+      await upsertCloud('purchase_items', purchaseItems)
+
+      await upsertCloud('payments', s.payments.map(payment => ({ shop_id: shopId, local_id: payment.id, date: payment.date, party_type: payment.partyType, party_id: payment.partyType === 'customer' ? (customerMap.get(payment.partyId) || null) : (supplierMap.get(payment.partyId) || null), party_local_id: payment.partyId || null, party_name: payment.partyName, amount: payment.amount, mode: payment.mode, note: payment.note, device_id: 'desktop' })))
+
+      await upsertCloud('expenses', s.expenses.map(expense => ({ shop_id: shopId, local_id: expense.id, date: expense.date, title: expense.title, amount: expense.amount, note: expense.note, device_id: 'desktop' })))
+
+      await upsertCloud('stock_logs', s.stockLogs.map(log => ({ shop_id: shopId, local_id: log.id, date: log.date, vegetable_id: vegMap.get(log.vegetableId) || null, vegetable_local_id: log.vegetableId, vegetable_name: log.vegetableName, type: log.type, qty: log.qty, before_stock: log.beforeStock, after_stock: log.afterStock, note: log.note, device_id: 'desktop' })))
+
+      await upsertCloud('sync_devices', [{ shop_id: shopId, device_id: 'desktop', device_name: 'Desktop Counter', last_sync_at: ts }], 'shop_id,device_id')
+      setCloudTest(`Push complete. Uploaded: ${s.vegetables.length} vegetables, ${s.sales.length} sales, ${s.purchases.length} purchases, ${s.stockLogs.length} stock logs.`)
+    } catch (error) {
+      setCloudTest(`Push failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setSyncing(false)
+    }
+  }
+  return <div className="space settings-page"><DatabaseStatus settings={s.settings} /><Card className="pad"><h2>{t.settings}</h2><div className="form-grid"><Input value={settings.name} onChange={e => setSettings({ ...settings, name: e.target.value })} placeholder="Shop Name"/><Input value={settings.owner} onChange={e => setSettings({ ...settings, owner: e.target.value })} placeholder="Owner"/><Input value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} placeholder={t.phone}/><Select value={settings.receiptSize} onChange={e => setSettings({ ...settings, receiptSize: e.target.value as any })}><option value="80mm">80mm</option><option value="58mm">58mm</option></Select><Input value={settings.upiId} onChange={e => setSettings({ ...settings, upiId: e.target.value })} placeholder="UPI ID e.g. shop@upi"/><label className="check-row"><input type="checkbox" checked={settings.showUpiOnReceipt} onChange={e => setSettings({ ...settings, showUpiOnReceipt: e.target.checked })}/> Show UPI placeholder on receipt</label><Input value={settings.receiptFooter} onChange={e => setSettings({ ...settings, receiptFooter: e.target.value })} placeholder="Receipt footer message"/><Textarea value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} placeholder={t.address}/><Button onClick={() => patch((old: AppState) => ({ ...old, settings }))}>{t.save}</Button></div></Card><Card className="pad"><h2>Cloud Sync Settings</h2><p className="muted">Supabase configuration. Actual data sync is coming next; this connects account/shop first.</p><div className="form-grid"><Input value={settings.supabaseUrl} onChange={e => setSettings({ ...settings, supabaseUrl: e.target.value })} placeholder="Supabase URL"/><Input value={settings.supabaseAnonKey} onChange={e => setSettings({ ...settings, supabaseAnonKey: e.target.value })} placeholder="Supabase anon key"/><Input value={settings.cloudEmail} onChange={e => setSettings({ ...settings, cloudEmail: e.target.value })} placeholder="Owner email"/><Input type="password" value={cloudPassword} onChange={e => setCloudPassword(e.target.value)} placeholder="Password (not saved)"/><Input value={settings.cloudShopId} onChange={e => setSettings({ ...settings, cloudShopId: e.target.value })} placeholder="Cloud Shop ID"/><label className="check-row"><input type="checkbox" checked={settings.cloudSyncEnabled} onChange={e => setSettings({ ...settings, cloudSyncEnabled: e.target.checked })}/> Enable cloud sync when ready</label><Button onClick={() => saveCloudSettings()}>Save Cloud Settings</Button><Button variant="secondary" onClick={testCloudConnection}>Test Connection</Button><Button variant="secondary" onClick={signUpCloud}>Sign Up</Button><Button variant="secondary" onClick={signInCloud}>Sign In</Button><Button variant="secondary" onClick={createCloudShop}>Create/Connect Cloud Shop</Button><Button variant="secondary" disabled={syncing} onClick={pushLocalToCloud}>{syncing ? 'Pushing...' : 'Push Local Data to Cloud'}</Button></div><div className="cloud-facts"><div><span>User</span><b>{settings.cloudUserId ? 'Signed in' : 'Not signed in'}</b></div><div><span>Shop</span><b>{settings.cloudShopId || 'Not connected'}</b></div><div><span>Sync</span><b>{settings.cloudSyncEnabled ? 'Enabled for future sync' : 'Disabled'}</b></div></div>{cloudTest && <p className="muted">{cloudTest}</p>}</Card><Card className="pad"><h2>{t.expense}</h2><div className="form-grid"><Input placeholder={t.expense} value={expense.title} onChange={e => setExpense({ ...expense, title: e.target.value })}/><Input type="number" placeholder={t.amount} value={expense.amount} onChange={e => setExpense({ ...expense, amount: number(e.target.value) })}/><Input placeholder={t.note} value={expense.note} onChange={e => setExpense({ ...expense, note: e.target.value })}/><Button onClick={addExpense}>{t.add}</Button></div></Card>{dbInfo && <Card className="pad"><h2>SQLite Database</h2><p className="muted">Desktop data is now stored in SQLite.</p><div className="list-row"><span>Database</span><b>{dbInfo.dbPath}</b></div><div className="list-row"><span>Backup Folder</span><b>{dbInfo.backupDir}</b></div><div className="list-row"><span>Folder Type</span><b>{dbInfo.hasCustomBackupDir ? 'Custom' : 'Default'}</b></div><div className="list-row"><span>Today's SQLite backup</span><b>{dbInfo.hasBackupToday ? 'Done' : 'Not yet'}</b></div><div className="list-row"><span>Last SQLite backup</span><b>{dbInfo.lastBackup ? dbInfo.lastBackup.name : 'Never'}</b></div><div className="list-row"><span>Normalized at</span><b>{dbInfo.normalizedAt ? new Date(dbInfo.normalizedAt).toLocaleString() : 'Not yet'}</b></div>{dbInfo.normalizedCounts && <div><h3 className="mini-title">Normalized Table Counts</h3><div className="count-grid">{Object.entries(dbInfo.normalizedCounts).map(([key, value]) => <div key={key}><span>{key}</span><b>{String(value)}</b></div>)}</div></div>}<div className="toolbar"><Button variant="secondary" onClick={() => window.desktopApp?.chooseBackupDir?.().then(path => { if (path) alert(`Backup folder selected:\n${path}`); refreshDbInfo() })}>Choose Backup Folder</Button><Button variant="secondary" onClick={() => window.desktopApp?.resetBackupDir?.().then(path => { alert(`Backup folder reset:\n${path}`); refreshDbInfo() })}>Use Default Folder</Button><Button variant="secondary" onClick={() => window.desktopApp?.backupDatabase?.().then(path => { alert(`SQLite backup saved:\n${path}`); refreshDbInfo() })}>Backup SQLite DB</Button><Button variant="secondary" onClick={() => window.desktopApp?.ensureDailyBackup?.().then(result => { alert(result.created ? `Daily backup created:\n${result.path}` : `Daily backup check: ${result.reason}`); refreshDbInfo() })}>Check Daily Backup</Button></div></Card>}<Card className="pad"><h2>{t.backup}</h2><p className="muted">Last backup: {s.lastBackupAt ? new Date(s.lastBackupAt).toLocaleString() : 'Never'}</p><div className="toolbar"><Button variant="secondary" onClick={backup}>{t.backup}</Button><label className="btn secondary">{t.restore}<input type="file" accept=".json" hidden onChange={e => restore(e.target.files?.[0])}/></label><Button variant="danger" onClick={async () => { if (confirm('Reset all data?')) { localStorage.setItem(STORAGE_KEY, JSON.stringify(demoState)); await window.desktopApp?.setAppState?.(demoState); location.reload() } }}>{t.reset}</Button></div></Card></div>
 }
 
 function Table({ headers, rows }: { headers: string[], rows: any[][] }) { return <div className="table-wrap"><table><thead><tr>{headers.map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{rows.length ? rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>) : <tr><td colSpan={headers.length} className="empty">No data</td></tr>}</tbody></table></div> }

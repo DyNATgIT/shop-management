@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, shell } = require('electron')
 const path = require('path')
+const { registerIpc } = require('./ipc.cjs')
 
 const isDev = process.argv.includes('--dev')
 
@@ -71,6 +72,7 @@ function createMenu() {
 app.setName('Vegetable Shop Manager')
 
 app.whenReady().then(() => {
+  registerIpc()
   createMenu()
   createWindow()
   app.on('activate', () => {

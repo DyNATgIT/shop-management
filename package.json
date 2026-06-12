@@ -10,15 +10,18 @@
     "preview": "vite preview",
     "desktop:dev": "concurrently -k \"npm run dev -- --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron electron/main.cjs --dev\"",
     "desktop:preview": "npm run build && electron electron/main.cjs",
-    "desktop:dist": "npm run build && electron-builder"
+    "desktop:dist": "npm run build && electron-builder",
+    "desktop:rebuild": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "better-sqlite3": "^12.10.0",
     "jspdf": "^2.5.1",
     "lucide-react": "^0.378.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
@@ -67,6 +70,10 @@
     "mac": {
       "target": "dmg",
       "category": "public.app-category.business"
-    }
+    },
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "npmRebuild": true
   }
 }

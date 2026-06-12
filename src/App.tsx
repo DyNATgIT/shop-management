@@ -12,7 +12,28 @@ export default function App() {
   const [state, setState] = useState<AppState>(loadState)
   const [tab, setTab] = useState<Tab>('dashboard')
   const t = tFor(state.settings.language)
-  const patch = (fn: (state: AppState) => AppState) => setState(prev => { const next = fn(prev); saveState(next); return next })
+  const patch = (fn: (state: AppState) => AppState) => setState(prev => {
+    const next = fn(prev)
+    saveState(next)
+    window.desktopApp?.setAppState?.(next).catch(err => console.error('SQLite save failed', err))
+    return next
+  })
+  useEffect(() => {
+    let cancelled = false
+    const api = window.desktopApp
+    if (!api?.getAppState) return
+    api.getAppState().then(dbState => {
+      if (cancelled) return
+      if (dbState) {
+        const merged = { ...demoState, ...dbState, settings: { ...demoState.settings, ...(dbState.settings || {}) } }
+        setState(merged)
+        saveState(merged)
+      } else {
+        api.setAppState(state).catch(err => console.error('SQLite migration failed', err))
+      }
+    }).catch(err => console.error('SQLite load failed', err))
+    return () => { cancelled = true }
+  }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); setTab('billing') }
@@ -302,11 +323,15 @@ function Reports({ s, patch, t }: { s: AppState, patch: any, t: any }) {
 }
 
 function AppSettings({ s, patch, t }: { s: AppState, patch: any, t: any }) {
-  const [settings, setSettings] = useState(s.settings); const [expense, setExpense] = useState({ title: '', amount: 0, note: '' })
-  const backup = () => patch((old: AppState) => downloadBackup(old))
-  const restore = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(JSON.parse(String(r.result)))); location.reload() } catch { alert('Invalid backup file') } }; r.readAsText(file) }
+  const [settings, setSettings] = useState(s.settings); const [expense, setExpense] = useState({ title: '', amount: 0, note: '' }); const [dbInfo, setDbInfo] = useState<any>(null)
+  useEffect(() => { window.desktopApp?.getDatabaseInfo?.().then(setDbInfo).catch(() => setDbInfo(null)) }, [])
+  const backup = () => {
+    patch((old: AppState) => downloadBackup(old))
+    window.desktopApp?.backupDatabase?.().then(path => console.log('SQLite backup saved:', path)).catch(err => console.error('SQLite backup failed', err))
+  }
+  const restore = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = async () => { try { const restored = JSON.parse(String(r.result)); localStorage.setItem(STORAGE_KEY, JSON.stringify(restored)); await window.desktopApp?.setAppState?.(restored); location.reload() } catch { alert('Invalid backup file') } }; r.readAsText(file) }
   const addExpense = () => { if (!expense.title || !expense.amount) return; patch((old: AppState) => ({ ...old, expenses: [{ id: id(), date: now(), ...expense }, ...old.expenses] })); setExpense({ title: '', amount: 0, note: '' }) }
-  return <div className="space settings-page"><Card className="pad"><h2>{t.settings}</h2><div className="form-grid"><Input value={settings.name} onChange={e => setSettings({ ...settings, name: e.target.value })} placeholder="Shop Name"/><Input value={settings.owner} onChange={e => setSettings({ ...settings, owner: e.target.value })} placeholder="Owner"/><Input value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} placeholder={t.phone}/><Select value={settings.receiptSize} onChange={e => setSettings({ ...settings, receiptSize: e.target.value as any })}><option value="80mm">80mm</option><option value="58mm">58mm</option></Select><Input value={settings.upiId} onChange={e => setSettings({ ...settings, upiId: e.target.value })} placeholder="UPI ID e.g. shop@upi"/><label className="check-row"><input type="checkbox" checked={settings.showUpiOnReceipt} onChange={e => setSettings({ ...settings, showUpiOnReceipt: e.target.checked })}/> Show UPI placeholder on receipt</label><Input value={settings.receiptFooter} onChange={e => setSettings({ ...settings, receiptFooter: e.target.value })} placeholder="Receipt footer message"/><Textarea value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} placeholder={t.address}/><Button onClick={() => patch((old: AppState) => ({ ...old, settings }))}>{t.save}</Button></div></Card><Card className="pad"><h2>{t.expense}</h2><div className="form-grid"><Input placeholder={t.expense} value={expense.title} onChange={e => setExpense({ ...expense, title: e.target.value })}/><Input type="number" placeholder={t.amount} value={expense.amount} onChange={e => setExpense({ ...expense, amount: number(e.target.value) })}/><Input placeholder={t.note} value={expense.note} onChange={e => setExpense({ ...expense, note: e.target.value })}/><Button onClick={addExpense}>{t.add}</Button></div></Card><Card className="pad"><h2>{t.backup}</h2><p className="muted">Last backup: {s.lastBackupAt ? new Date(s.lastBackupAt).toLocaleString() : 'Never'}</p><div className="toolbar"><Button variant="secondary" onClick={backup}>{t.backup}</Button><label className="btn secondary">{t.restore}<input type="file" accept=".json" hidden onChange={e => restore(e.target.files?.[0])}/></label><Button variant="danger" onClick={() => { if (confirm('Reset all data?')) { localStorage.setItem(STORAGE_KEY, JSON.stringify(demoState)); location.reload() } }}>{t.reset}</Button></div></Card></div>
+  return <div className="space settings-page"><Card className="pad"><h2>{t.settings}</h2><div className="form-grid"><Input value={settings.name} onChange={e => setSettings({ ...settings, name: e.target.value })} placeholder="Shop Name"/><Input value={settings.owner} onChange={e => setSettings({ ...settings, owner: e.target.value })} placeholder="Owner"/><Input value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} placeholder={t.phone}/><Select value={settings.receiptSize} onChange={e => setSettings({ ...settings, receiptSize: e.target.value as any })}><option value="80mm">80mm</option><option value="58mm">58mm</option></Select><Input value={settings.upiId} onChange={e => setSettings({ ...settings, upiId: e.target.value })} placeholder="UPI ID e.g. shop@upi"/><label className="check-row"><input type="checkbox" checked={settings.showUpiOnReceipt} onChange={e => setSettings({ ...settings, showUpiOnReceipt: e.target.checked })}/> Show UPI placeholder on receipt</label><Input value={settings.receiptFooter} onChange={e => setSettings({ ...settings, receiptFooter: e.target.value })} placeholder="Receipt footer message"/><Textarea value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} placeholder={t.address}/><Button onClick={() => patch((old: AppState) => ({ ...old, settings }))}>{t.save}</Button></div></Card><Card className="pad"><h2>{t.expense}</h2><div className="form-grid"><Input placeholder={t.expense} value={expense.title} onChange={e => setExpense({ ...expense, title: e.target.value })}/><Input type="number" placeholder={t.amount} value={expense.amount} onChange={e => setExpense({ ...expense, amount: number(e.target.value) })}/><Input placeholder={t.note} value={expense.note} onChange={e => setExpense({ ...expense, note: e.target.value })}/><Button onClick={addExpense}>{t.add}</Button></div></Card>{dbInfo && <Card className="pad"><h2>SQLite Database</h2><p className="muted">Desktop data is now stored in SQLite.</p><div className="list-row"><span>Database</span><b>{dbInfo.dbPath}</b></div><div className="list-row"><span>Backups</span><b>{dbInfo.backupDir}</b></div><div className="toolbar"><Button variant="secondary" onClick={() => window.desktopApp?.backupDatabase?.().then(path => alert(`SQLite backup saved:\n${path}`))}>Backup SQLite DB</Button></div></Card>}<Card className="pad"><h2>{t.backup}</h2><p className="muted">Last backup: {s.lastBackupAt ? new Date(s.lastBackupAt).toLocaleString() : 'Never'}</p><div className="toolbar"><Button variant="secondary" onClick={backup}>{t.backup}</Button><label className="btn secondary">{t.restore}<input type="file" accept=".json" hidden onChange={e => restore(e.target.files?.[0])}/></label><Button variant="danger" onClick={async () => { if (confirm('Reset all data?')) { localStorage.setItem(STORAGE_KEY, JSON.stringify(demoState)); await window.desktopApp?.setAppState?.(demoState); location.reload() } }}>{t.reset}</Button></div></Card></div>
 }
 
 function Table({ headers, rows }: { headers: string[], rows: any[][] }) { return <div className="table-wrap"><table><thead><tr>{headers.map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{rows.length ? rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>) : <tr><td colSpan={headers.length} className="empty">No data</td></tr>}</tbody></table></div> }

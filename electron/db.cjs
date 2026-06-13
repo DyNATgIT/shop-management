@@ -242,6 +242,28 @@ function getDb() {
       sync_status TEXT NOT NULL DEFAULT 'local'
     );
 
+    CREATE TABLE IF NOT EXISTS returns (
+      id TEXT PRIMARY KEY,
+      shop_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      sale_id TEXT,
+      bill_no TEXT,
+      vegetable_id TEXT,
+      vegetable_name TEXT,
+      qty REAL DEFAULT 0,
+      unit TEXT,
+      rate REAL DEFAULT 0,
+      amount REAL DEFAULT 0,
+      reason TEXT,
+      raw_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT,
+      device_id TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
+      sync_status TEXT NOT NULL DEFAULT 'local'
+    );
+
     CREATE TABLE IF NOT EXISTS stock_logs (
       id TEXT PRIMARY KEY,
       shop_id TEXT NOT NULL,
@@ -268,6 +290,7 @@ function getDb() {
     CREATE INDEX IF NOT EXISTS idx_purchases_date ON purchases(date);
     CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items(purchase_id);
     CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date);
+    CREATE INDEX IF NOT EXISTS idx_returns_date ON returns(date);
     CREATE INDEX IF NOT EXISTS idx_stock_logs_date ON stock_logs(date);
   `)
   db.prepare('INSERT OR IGNORE INTO sync_meta (key, value) VALUES (?, ?)').run('schema_version', '2')
@@ -341,7 +364,7 @@ function getAppState() {
 }
 
 function clearNormalizedTables(database) {
-  const tables = ['stock_logs', 'payments', 'purchase_items', 'purchases', 'sale_items', 'sales', 'expenses', 'suppliers', 'customers', 'vegetables', 'shops']
+  const tables = ['stock_logs', 'returns', 'payments', 'purchase_items', 'purchases', 'sale_items', 'sales', 'expenses', 'suppliers', 'customers', 'vegetables', 'shops']
   for (const table of tables) database.prepare(`DELETE FROM ${table}`).run()
 }
 
@@ -389,6 +412,9 @@ function writeNormalizedState(state) {
 
     const insertExpense = database.prepare(`INSERT INTO expenses (id, shop_id, date, title, amount, note, raw_json, created_at, updated_at, device_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`) 
     for (const expense of state.expenses || []) insertExpense.run(expense.id, shopId, expense.date || ts, expense.title || '', expense.amount || 0, expense.note || '', safeJson(expense), expense.date || ts, expense.date || ts, deviceId)
+
+    const insertReturn = database.prepare(`INSERT INTO returns (id, shop_id, date, sale_id, bill_no, vegetable_id, vegetable_name, qty, unit, rate, amount, reason, raw_json, created_at, updated_at, device_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`) 
+    for (const ret of state.returns || []) insertReturn.run(ret.id, shopId, ret.date || ts, ret.saleId || '', ret.billNo || '', ret.vegetableId || '', ret.vegetableName || '', ret.qty || 0, ret.unit || '', ret.rate || 0, ret.amount || 0, ret.reason || '', safeJson(ret), ret.date || ts, ret.date || ts, deviceId)
 
     const insertStockLog = database.prepare(`INSERT INTO stock_logs (id, shop_id, date, vegetable_id, vegetable_name, type, qty, before_stock, after_stock, note, raw_json, created_at, updated_at, device_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`) 
     for (const log of state.stockLogs || []) insertStockLog.run(log.id, shopId, log.date || ts, log.vegetableId || '', log.vegetableName || '', log.type || 'ADJUSTMENT', log.qty || 0, log.beforeStock || 0, log.afterStock || 0, log.note || '', safeJson(log), log.date || ts, log.date || ts, deviceId)
@@ -448,6 +474,7 @@ function getNormalizedCounts() {
     purchaseItems: countTable('purchase_items'),
     payments: countTable('payments'),
     expenses: countTable('expenses'),
+    returns: countTable('returns'),
     stockLogs: countTable('stock_logs')
   }
 }

@@ -146,6 +146,20 @@ export interface Payment {
   note: string
 }
 
+export interface ReturnRecord {
+  id: string
+  date: string
+  saleId: string
+  billNo: string
+  vegetableId: string
+  vegetableName: string
+  qty: number
+  unit: Unit
+  rate: number
+  amount: number
+  reason: string
+}
+
 export interface AppState {
   settings: ShopSettings
   vegetables: Vegetable[]
@@ -156,6 +170,7 @@ export interface AppState {
   expenses: Expense[]
   stockLogs: StockLog[]
   payments: Payment[]
+  returns: ReturnRecord[]
   billCounter: number
   lastBackupAt?: string
 }

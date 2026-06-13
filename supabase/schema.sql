@@ -240,6 +240,39 @@ create table if not exists public.stock_logs (
   unique(shop_id, local_id)
 );
 
+
+-- Returns / partial returns
+create table if not exists public.returns (
+  id uuid primary key default gen_random_uuid(),
+  local_id text,
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  date timestamptz not null,
+  sale_id uuid references public.sales(id) on delete set null,
+  sale_local_id text,
+  bill_no text,
+  vegetable_id uuid references public.vegetables(id) on delete set null,
+  vegetable_local_id text,
+  vegetable_name text,
+  qty numeric(12,3) default 0,
+  unit text,
+  rate numeric(12,2) default 0,
+  amount numeric(12,2) default 0,
+  reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  device_id text,
+  version integer not null default 1,
+  unique(shop_id, local_id)
+);
+create index if not exists idx_returns_shop_date on public.returns(shop_id, date);
+alter table public.returns enable row level security;
+drop trigger if exists set_returns_updated_at on public.returns;
+create trigger set_returns_updated_at before update on public.returns for each row execute function public.set_updated_at();
+drop policy if exists "returns shop access" on public.returns;
+create policy "returns shop access" on public.returns for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
+notify pgrst, 'reload schema';
+
 -- Per-device sync state
 create table if not exists public.sync_devices (
   id uuid primary key default gen_random_uuid(),
@@ -404,3 +437,6 @@ create policy "sync_devices shop access" on public.sync_devices for all using (p
 -- 1. Desktop local IDs are stored in local_id for mapping SQLite records to cloud UUIDs.
 -- 2. For first sync, create a shop, create shop_users membership, then upsert records by (shop_id, local_id).
 -- 3. For append-only tables (sales, sale_items, stock_logs), avoid updates except cancellation/deleted_at metadata.
+
+-- Force PostgREST/Supabase API schema cache refresh after function/policy changes.
+notify pgrst, 'reload schema';

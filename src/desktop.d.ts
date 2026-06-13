@@ -31,6 +31,7 @@ declare global {
           purchaseItems: number
           payments: number
           expenses: number
+          returns: number
           stockLogs: number
         }
       }>

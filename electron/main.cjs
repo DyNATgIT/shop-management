@@ -22,7 +22,7 @@ function createWindow() {
 
   if (isDev) {
     win.loadURL('http://127.0.0.1:5173')
-    win.webContents.openDevTools({ mode: 'detach' })
+    //win.webContents.openDevTools({ mode: 'detach' })
   } else {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
   }

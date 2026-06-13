@@ -318,6 +318,47 @@ returns boolean as $$
   );
 $$ language sql stable security definer;
 
+-- RPC: create a shop and owner membership in one safe transaction.
+-- This avoids RLS issues where a user can insert a shop but cannot read it yet
+-- because membership does not exist until after the shop is created.
+create or replace function public.create_shop_with_owner(
+  p_name text,
+  p_owner text default null,
+  p_address text default null,
+  p_phone text default null,
+  p_upi_id text default null,
+  p_receipt_size text default '80mm',
+  p_receipt_footer text default null,
+  p_device_id text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_shop_id uuid;
+  current_user_id uuid;
+begin
+  current_user_id := auth.uid();
+  if current_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  insert into public.shops (name, owner, address, phone, upi_id, receipt_size, receipt_footer, device_id)
+  values (p_name, p_owner, p_address, p_phone, p_upi_id, coalesce(p_receipt_size, '80mm'), p_receipt_footer, p_device_id)
+  returning id into new_shop_id;
+
+  insert into public.shop_users (shop_id, user_id, role)
+  values (new_shop_id, current_user_id, 'owner')
+  on conflict (shop_id, user_id) do nothing;
+
+  return new_shop_id;
+end;
+$$;
+
+grant execute on function public.create_shop_with_owner(text, text, text, text, text, text, text, text) to authenticated;
+
 -- Basic shop access policies
 -- Drop policies first so this schema can be re-run safely.
 drop policy if exists "Users can view their shops" on public.shops;

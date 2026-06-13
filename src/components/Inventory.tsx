@@ -1,75 +1,21 @@
 import { useState } from 'react'
+import { AppState, Vegetable } from '../lib/types'
+import { exportCsv, id, money, now, number, units } from '../lib/store'
+import { Button, Card, Input, Select } from './ui'
 
-interface Product {
-  id: number
-  name: string
-  stock: number
-  price: number
-}
-
-export default function Inventory() {
-  const [products, setProducts] = useState<Product[]>([
-    { id: 1, name: 'Basmati Rice (1kg)', stock: 45, price: 85 },
-    { id: 2, name: 'Toor Dal (500g)', stock: 30, price: 65 },
-    { id: 3, name: 'Sunflower Oil (1L)', stock: 22, price: 135 },
-  ])
-
-  const [searchTerm, setSearchTerm] = useState('')
-  const [newProduct, setNewProduct] = useState({ name: '', stock: 0, price: 0 })
-
-  const addProduct = () => {
-    if (!newProduct.name) return
-    setProducts([...products, { id: Date.now(), name: newProduct.name, stock: newProduct.stock, price: newProduct.price }])
-    setNewProduct({ name: '', stock: 0, price: 0 })
+export default function Inventory({ s, patch, t }: { s: AppState, patch: any, t: any }) {
+  const blank: Vegetable = { id: '', name: '', hindiName: '', category: 'Vegetables', unit: 'kg', barcode: '', purchaseRate: 0, sellingRate: 0, stock: 0, lowStock: s.settings.defaultLowStockKg, wastagePercent: 5, active: true, lastUpdated: now() }
+  const [form, setForm] = useState<Vegetable>(blank); const [editId, setEditId] = useState(''); const [q, setQ] = useState('')
+  const list = s.vegetables.filter(v => `${v.name} ${v.hindiName} ${v.category} ${v.barcode}`.toLowerCase().includes(q.toLowerCase()))
+  const save = () => { if (!form.name) return; patch((old: AppState) => editId ? { ...old, vegetables: old.vegetables.map(v => v.id === editId ? { ...form, id: editId, lastUpdated: now() } : v) } : { ...old, vegetables: [{ ...form, id: id(), lastUpdated: now() }, ...old.vegetables] }); setForm(blank); setEditId('') }
+  const deleteVegetable = (veg: Vegetable) => {
+    const used = s.sales.some(sale => sale.items.some(item => item.vegetableId === veg.id)) || s.purchases.some(p => p.items.some(item => item.vegetableId === veg.id))
+    const msg = used
+      ? `${veg.name} is used in old bills/purchases. Delete will remove it from current vegetable list, but old bills will remain. Continue?`
+      : `Delete ${veg.name}?`
+    if (!confirm(msg)) return
+    patch((old: AppState) => ({ ...old, vegetables: old.vegetables.filter(v => v.id !== veg.id) }))
+    if (editId === veg.id) { setForm(blank); setEditId('') }
   }
-
-  const deleteProduct = (id: number) => {
-    setProducts(products.filter(p => p.id !== id))
-  }
-
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Inventory</h2>
-        <div className="flex gap-3 items-center">
-          <input className="border px-4 py-2 rounded-xl text-sm w-72" placeholder="Search products..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          <input className="border px-3 py-2 rounded-lg text-sm w-56" placeholder="Product name" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
-          <input type="number" className="border px-3 py-2 rounded-lg text-sm w-20" placeholder="Stock" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})} />
-          <input type="number" className="border px-3 py-2 rounded-lg text-sm w-20" placeholder="Price" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: parseInt(e.target.value) || 0})} />
-          <button onClick={addProduct} className="bg-blue-600 text-white px-6 rounded-xl text-sm font-medium hover:bg-blue-700">Add</button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="text-left px-6 py-4 text-sm font-medium text-gray-600">Product</th>
-              <th className="text-center px-6 py-4 text-sm font-medium text-gray-600">Stock</th>
-              <th className="text-right px-6 py-4 text-sm font-medium text-gray-600">Price (₹)</th>
-              <th className="w-12"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {filteredProducts.map(p => (
-              <tr key={p.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 font-medium">{p.name}</td>
-                <td className="px-6 py-4 text-center">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${p.stock < 10 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                    {p.stock} units
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right font-medium">₹{p.price}</td>
-                <td className="px-4">
-                  <button onClick={() => deleteProduct(p.id)} className="text-red-500 hover:text-red-700 text-sm">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
+  return <div className="space"><Card className="pad"><h2>{t.inventory}</h2><div className="form-grid"><Input placeholder={t.name} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}/><Input placeholder={t.hindiName} value={form.hindiName} onChange={e => setForm({ ...form, hindiName: e.target.value })}/><Input placeholder={t.category} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}/><Select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value as any })}>{units.map(u => <option key={u} value={u}>{t[u]}</option>)}</Select><Input placeholder={t.barcode} value={form.barcode} onChange={e => setForm({ ...form, barcode: e.target.value })}/><Input type="number" placeholder={t.stock} value={form.stock} onChange={e => setForm({ ...form, stock: number(e.target.value) })}/><Input type="number" placeholder={t.purchaseRate} value={form.purchaseRate} onChange={e => setForm({ ...form, purchaseRate: number(e.target.value) })}/><Input type="number" placeholder={t.sellingRate} value={form.sellingRate} onChange={e => setForm({ ...form, sellingRate: number(e.target.value) })}/><Input type="number" placeholder={t.lowStockLevel} value={form.lowStock} onChange={e => setForm({ ...form, lowStock: number(e.target.value) })}/><Input type="number" placeholder={t.wastagePercent} value={form.wastagePercent} onChange={e => setForm({ ...form, wastagePercent: number(e.target.value) })}/><Button onClick={save}>{editId ? t.save : t.add}</Button>{editId && <Button variant="secondary" onClick={() => { setForm(blank); setEditId('') }}>{t.cancel}</Button>}</div></Card><div className="toolbar"><Input placeholder={t.searchVegetable} value={q} onChange={e => setQ(e.target.value)}/><Button variant="secondary" onClick={() => exportCsv(s.vegetables, 'vegetables.csv')}>{t.export}</Button></div><Card><div className="table-wrap"><table><thead><tr><th>{t.name}</th><th>{t.stock}</th><th>{t.purchaseRate}</th><th>{t.sellingRate}</th><th>{t.lowStock}</th><th>Actions</th></tr></thead><tbody>{list.map(v => <tr key={v.id}><td><b>{v.hindiName || v.name}</b><small>{v.name} • {v.category} • {v.barcode}</small></td><td className={v.stock <= v.lowStock ? 'red bold' : 'bold'}>{v.stock} {v.unit}</td><td>{money(v.purchaseRate)}</td><td>{money(v.sellingRate)}</td><td>{v.lowStock} {v.unit}</td><td className="actions"><Button variant="secondary" onClick={() => { setForm(v); setEditId(v.id) }}>{t.edit}</Button><Button variant="danger" onClick={() => deleteVegetable(v)}>{t.delete}</Button></td></tr>)}</tbody></table></div></Card></div>
 }

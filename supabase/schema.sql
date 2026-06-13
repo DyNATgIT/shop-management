@@ -35,10 +35,14 @@ create table if not exists public.shop_users (
   id uuid primary key default gen_random_uuid(),
   shop_id uuid not null references public.shops(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  role text not null default 'owner' check (role in ('owner', 'manager', 'staff', 'viewer')),
+  role text not null default 'owner' check (role in ('owner', 'manager', 'staff')),
   created_at timestamptz not null default now(),
   unique(shop_id, user_id)
 );
+
+-- Ensure older projects do not keep the removed 'viewer' role constraint.
+alter table public.shop_users drop constraint if exists shop_users_role_check;
+alter table public.shop_users add constraint shop_users_role_check check (role in ('owner', 'manager', 'staff'));
 
 -- Vegetables / fruits / items
 create table if not exists public.vegetables (
@@ -410,12 +414,17 @@ grant execute on function public.create_shop_with_owner(text, text, text, text, 
 drop policy if exists "Users can view their shops" on public.shops;
 drop policy if exists "Users can update their shops" on public.shops;
 drop policy if exists "Authenticated users can create shops" on public.shops;
+drop policy if exists "Owners and managers can update shops" on public.shops;
 
 drop policy if exists "Users can view shop memberships" on public.shop_users;
 drop policy if exists "Users can create own membership" on public.shop_users;
+drop policy if exists "Users can view relevant shop memberships" on public.shop_users;
 
 drop policy if exists "vegetables shop access" on public.vegetables;
 drop policy if exists "customers shop access" on public.customers;
+drop policy if exists "vegetables read for shop users" on public.vegetables;
+drop policy if exists "vegetables write owner manager" on public.vegetables;
+drop policy if exists "vegetables update owner manager" on public.vegetables;
 drop policy if exists "suppliers shop access" on public.suppliers;
 drop policy if exists "sales shop access" on public.sales;
 drop policy if exists "sale_items shop access" on public.sale_items;
@@ -426,6 +435,12 @@ drop policy if exists "expenses shop access" on public.expenses;
 drop policy if exists "stock_logs shop access" on public.stock_logs;
 drop policy if exists "sync_devices shop access" on public.sync_devices;
 drop policy if exists "returns shop access" on public.returns;
+drop policy if exists "suppliers owner manager" on public.suppliers;
+drop policy if exists "purchases owner manager" on public.purchases;
+drop policy if exists "purchase_items owner manager" on public.purchase_items;
+drop policy if exists "expenses owner manager" on public.expenses;
+drop policy if exists "returns owner manager" on public.returns;
+drop policy if exists "sync_devices owner manager" on public.sync_devices;
 
 -- Shops and memberships
 create policy "Users can view their shops" on public.shops for select using (public.user_has_shop_access(id));

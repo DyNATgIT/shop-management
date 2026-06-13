@@ -351,6 +351,19 @@ returns boolean as $$
   );
 $$ language sql stable security definer;
 
+create or replace function public.user_shop_role(target_shop_id uuid)
+returns text as $$
+  select su.role from public.shop_users su
+  where su.shop_id = target_shop_id
+  and su.user_id = auth.uid()
+  limit 1;
+$$ language sql stable security definer;
+
+create or replace function public.user_has_shop_role(target_shop_id uuid, allowed_roles text[])
+returns boolean as $$
+  select coalesce(public.user_shop_role(target_shop_id) = any(allowed_roles), false);
+$$ language sql stable security definer;
+
 -- RPC: create a shop and owner membership in one safe transaction.
 -- This avoids RLS issues where a user can insert a shop but cannot read it yet
 -- because membership does not exist until after the shop is created.
@@ -412,26 +425,35 @@ drop policy if exists "payments shop access" on public.payments;
 drop policy if exists "expenses shop access" on public.expenses;
 drop policy if exists "stock_logs shop access" on public.stock_logs;
 drop policy if exists "sync_devices shop access" on public.sync_devices;
+drop policy if exists "returns shop access" on public.returns;
 
+-- Shops and memberships
 create policy "Users can view their shops" on public.shops for select using (public.user_has_shop_access(id));
-create policy "Users can update their shops" on public.shops for update using (public.user_has_shop_access(id));
+create policy "Owners and managers can update shops" on public.shops for update using (public.user_has_shop_role(id, array['owner','manager']));
 create policy "Authenticated users can create shops" on public.shops for insert with check (auth.uid() is not null);
 
-create policy "Users can view shop memberships" on public.shop_users for select using (user_id = auth.uid() or public.user_has_shop_access(shop_id));
+create policy "Users can view relevant shop memberships" on public.shop_users for select using (user_id = auth.uid() or public.user_has_shop_role(shop_id, array['owner','manager']));
 create policy "Users can create own membership" on public.shop_users for insert with check (user_id = auth.uid());
 
--- Generic per-shop policies for data tables
-create policy "vegetables shop access" on public.vegetables for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "customers shop access" on public.customers for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "suppliers shop access" on public.suppliers for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "sales shop access" on public.sales for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "sale_items shop access" on public.sale_items for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "purchases shop access" on public.purchases for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "purchase_items shop access" on public.purchase_items for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "payments shop access" on public.payments for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "expenses shop access" on public.expenses for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "stock_logs shop access" on public.stock_logs for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
-create policy "sync_devices shop access" on public.sync_devices for all using (public.user_has_shop_access(shop_id)) with check (public.user_has_shop_access(shop_id));
+-- Vegetables: staff can read for billing, owner/manager edit.
+create policy "vegetables read for shop users" on public.vegetables for select using (public.user_has_shop_access(shop_id));
+create policy "vegetables write owner manager" on public.vegetables for insert with check (public.user_has_shop_role(shop_id, array['owner','manager']));
+create policy "vegetables update owner manager" on public.vegetables for update using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
+
+-- Staff-operational tables
+create policy "customers shop access" on public.customers for all using (public.user_has_shop_role(shop_id, array['owner','manager','staff'])) with check (public.user_has_shop_role(shop_id, array['owner','manager','staff']));
+create policy "sales shop access" on public.sales for all using (public.user_has_shop_role(shop_id, array['owner','manager','staff'])) with check (public.user_has_shop_role(shop_id, array['owner','manager','staff']));
+create policy "sale_items shop access" on public.sale_items for all using (public.user_has_shop_role(shop_id, array['owner','manager','staff'])) with check (public.user_has_shop_role(shop_id, array['owner','manager','staff']));
+create policy "payments shop access" on public.payments for all using (public.user_has_shop_role(shop_id, array['owner','manager','staff'])) with check (public.user_has_shop_role(shop_id, array['owner','manager','staff']));
+create policy "stock_logs shop access" on public.stock_logs for all using (public.user_has_shop_role(shop_id, array['owner','manager','staff'])) with check (public.user_has_shop_role(shop_id, array['owner','manager','staff']));
+
+-- Owner/manager sensitive tables
+create policy "suppliers owner manager" on public.suppliers for all using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
+create policy "purchases owner manager" on public.purchases for all using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
+create policy "purchase_items owner manager" on public.purchase_items for all using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
+create policy "expenses owner manager" on public.expenses for all using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
+create policy "returns owner manager" on public.returns for all using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
+create policy "sync_devices owner manager" on public.sync_devices for all using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
 
 -- Notes:
 -- 1. Desktop local IDs are stored in local_id for mapping SQLite records to cloud UUIDs.

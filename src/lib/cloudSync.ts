@@ -63,3 +63,74 @@ export async function pushStateToCloud(state: AppState, settings: any) {
   await upsertCloudRows(settings, 'sync_devices', [{ shop_id: shopId, device_id: 'desktop', device_name: 'Desktop Counter', last_sync_at: ts }], 'shop_id,device_id')
   return `Auto push complete: ${state.vegetables.length} vegetables, ${state.sales.length} sales, ${state.purchases.length} purchases.`
 }
+
+async function fetchCloudTable(settings: any, table: string) {
+  const base = settings.supabaseUrl.replace(/\/$/, '')
+  const res = await fetch(`${base}/rest/v1/${table}?shop_id=eq.${settings.cloudShopId}&deleted_at=is.null&select=*`, { headers: cloudHeadersFor(settings, settings.cloudAccessToken) })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message || `${table} fetch failed: ${res.status}`)
+  return Array.isArray(data) ? data : []
+}
+
+export async function fetchCloudState(baseState: AppState, settings: any): Promise<AppState> {
+  if (!settings.supabaseUrl || !settings.supabaseAnonKey) throw new Error('Missing Supabase URL or anon key')
+  if (!settings.cloudAccessToken) throw new Error('Sign in first')
+  if (!settings.cloudShopId) throw new Error('Select/connect a cloud shop first')
+  const base = settings.supabaseUrl.replace(/\/$/, '')
+  const nowIso = () => new Date().toISOString()
+  const shopRes = await fetch(`${base}/rest/v1/shops?id=eq.${settings.cloudShopId}&select=*`, { headers: cloudHeadersFor(settings, settings.cloudAccessToken) })
+  const shopRows = await shopRes.json().catch(() => [])
+  if (!shopRes.ok) throw new Error(shopRows?.message || `Shop fetch failed: ${shopRes.status}`)
+  const shop = Array.isArray(shopRows) ? shopRows[0] : null
+
+  const [vegetableRows, customerRows, supplierRows, saleRows, saleItemRows, purchaseRows, purchaseItemRows, paymentRows, expenseRows, returnRows, stockLogRows] = await Promise.all([
+    fetchCloudTable(settings, 'vegetables'), fetchCloudTable(settings, 'customers'), fetchCloudTable(settings, 'suppliers'), fetchCloudTable(settings, 'sales'), fetchCloudTable(settings, 'sale_items'), fetchCloudTable(settings, 'purchases'), fetchCloudTable(settings, 'purchase_items'), fetchCloudTable(settings, 'payments'), fetchCloudTable(settings, 'expenses'), fetchCloudTable(settings, 'returns'), fetchCloudTable(settings, 'stock_logs')
+  ])
+
+  const saleItemsBySale = new Map<string, any[]>()
+  saleItemRows.forEach(item => { const key = item.sale_local_id || item.sale_id; saleItemsBySale.set(key, [...(saleItemsBySale.get(key) || []), item]) })
+  const purchaseItemsByPurchase = new Map<string, any[]>()
+  purchaseItemRows.forEach(item => { const key = item.purchase_local_id || item.purchase_id; purchaseItemsByPurchase.set(key, [...(purchaseItemsByPurchase.get(key) || []), item]) })
+
+  return {
+    ...baseState,
+    settings: {
+      ...baseState.settings,
+      name: shop?.name || baseState.settings.name,
+      owner: shop?.owner || baseState.settings.owner,
+      address: shop?.address || baseState.settings.address,
+      phone: shop?.phone || baseState.settings.phone,
+      upiId: shop?.upi_id || baseState.settings.upiId,
+      receiptSize: shop?.receipt_size || baseState.settings.receiptSize,
+      receiptFooter: shop?.receipt_footer || baseState.settings.receiptFooter,
+      supabaseUrl: settings.supabaseUrl,
+      supabaseAnonKey: settings.supabaseAnonKey,
+      cloudShopId: settings.cloudShopId,
+      cloudEmail: settings.cloudEmail,
+      cloudUserId: settings.cloudUserId,
+      cloudAccessToken: settings.cloudAccessToken,
+      cloudRefreshToken: settings.cloudRefreshToken,
+      cloudRole: settings.cloudRole || baseState.settings.cloudRole,
+      cloudSyncEnabled: settings.cloudSyncEnabled
+    },
+    vegetables: vegetableRows.map(v => ({ id: v.local_id || v.id, name: v.name || '', hindiName: v.hindi_name || '', category: v.category || '', unit: v.unit || 'kg', barcode: v.barcode || '', purchaseRate: Number(v.purchase_rate || 0), sellingRate: Number(v.selling_rate || 0), stock: Number(v.stock || 0), lowStock: Number(v.low_stock || 0), wastagePercent: Number(v.wastage_percent || 0), active: v.active !== false, lastUpdated: v.updated_at || nowIso() })),
+    customers: customerRows.map(c => ({ id: c.local_id || c.id, name: c.name || '', phone: c.phone || '', address: c.address || '', balance: Number(c.balance || 0) })),
+    suppliers: supplierRows.map(sup => ({ id: sup.local_id || sup.id, name: sup.name || '', phone: sup.phone || '', address: sup.address || '' })),
+    sales: saleRows.map(sale => ({ id: sale.local_id || sale.id, billNo: sale.bill_no || '', date: sale.date || nowIso(), customerId: sale.customer_local_id || '', customerName: sale.customer_name || '', customerPhone: sale.customer_phone || '', subtotal: Number(sale.subtotal || 0), discount: Number(sale.discount || 0), roundOff: Number(sale.round_off || 0), total: Number(sale.total || 0), paid: Number(sale.paid || 0), due: Number(sale.due || 0), paymentMode: sale.payment_mode || 'Cash', cancelledAt: sale.cancelled_at || undefined, cancelReason: sale.cancel_reason || undefined, items: (saleItemsBySale.get(sale.local_id || sale.id) || []).map(item => ({ vegetableId: item.vegetable_local_id || '', name: item.name || '', hindiName: item.hindi_name || '', unit: item.unit || 'kg', qty: Number(item.qty || 0), rate: Number(item.rate || 0), discount: Number(item.discount || 0) })) })),
+    purchases: purchaseRows.map(purchase => ({ id: purchase.local_id || purchase.id, date: purchase.date || nowIso(), supplierId: purchase.supplier_local_id || '', supplierName: purchase.supplier_name || '', total: Number(purchase.total || 0), paid: Number(purchase.paid || 0), due: Number(purchase.due || 0), items: (purchaseItemsByPurchase.get(purchase.local_id || purchase.id) || []).map(item => ({ vegetableId: item.vegetable_local_id || '', name: item.name || '', qty: Number(item.qty || 0), rate: Number(item.rate || 0) })) })),
+    payments: paymentRows.map(payment => ({ id: payment.local_id || payment.id, date: payment.date || nowIso(), partyType: payment.party_type || 'customer', partyId: payment.party_local_id || '', partyName: payment.party_name || '', amount: Number(payment.amount || 0), mode: payment.mode || 'Cash', note: payment.note || '' })),
+    expenses: expenseRows.map(expense => ({ id: expense.local_id || expense.id, date: expense.date || nowIso(), title: expense.title || '', amount: Number(expense.amount || 0), note: expense.note || '' })),
+    returns: returnRows.map(ret => ({ id: ret.local_id || ret.id, date: ret.date || nowIso(), saleId: ret.sale_local_id || '', billNo: ret.bill_no || '', vegetableId: ret.vegetable_local_id || '', vegetableName: ret.vegetable_name || '', qty: Number(ret.qty || 0), unit: ret.unit || 'kg', rate: Number(ret.rate || 0), amount: Number(ret.amount || 0), reason: ret.reason || '' })),
+    stockLogs: stockLogRows.map(log => ({ id: log.local_id || log.id, date: log.date || nowIso(), vegetableId: log.vegetable_local_id || '', vegetableName: log.vegetable_name || '', type: log.type || 'ADJUSTMENT', qty: Number(log.qty || 0), beforeStock: Number(log.before_stock || 0), afterStock: Number(log.after_stock || 0), note: log.note || '' })),
+    billCounter: Math.max(1, ...saleRows.map(row => Number(String(row.bill_no || '').replace(/\D/g, '')) || 0)) + 1
+  }
+}
+
+export async function getCloudMemberships(settings: any) {
+  if (!settings.supabaseUrl || !settings.supabaseAnonKey || !settings.cloudAccessToken) throw new Error('Sign in first')
+  const base = settings.supabaseUrl.replace(/\/$/, '')
+  const res = await fetch(`${base}/rest/v1/shop_users?select=shop_id,role,shops(id,name)&user_id=eq.${settings.cloudUserId}`, { headers: cloudHeadersFor(settings, settings.cloudAccessToken) })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message || `Membership fetch failed: ${res.status}`)
+  return Array.isArray(data) ? data : []
+}

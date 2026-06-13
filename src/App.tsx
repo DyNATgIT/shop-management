@@ -17,6 +17,7 @@ import Reports from './components/Reports'
 import AppSettings from './components/Settings'
 import PinGate from './components/PinGate'
 import AutoCloudPush from './components/AutoCloudPush'
+import WebCloudLogin from './components/WebCloudLogin'
 
 type Tab = 'dashboard' | 'billing' | 'inventory' | 'rates' | 'purchases' | 'wastage' | 'customers' | 'suppliers' | 'payments' | 'reports' | 'settings'
 
@@ -31,10 +32,18 @@ export default function App() {
     window.desktopApp?.setAppState?.(next).catch(err => console.error('SQLite save failed', err))
     return next
   })
+  const isDesktop = Boolean(window.desktopApp?.isDesktop)
+  const isWebsite = !isDesktop
+  const webRole = state.settings.cloudRole || ''
   const defaultStaffAllowedTabs: Tab[] = ['dashboard', 'billing', 'customers', 'payments', 'wastage']
-  const staffAllowedTabs = (state.settings.staffAllowedTabs?.length ? state.settings.staffAllowedTabs : defaultStaffAllowedTabs) as Tab[]
-  const ownerAccessRequired = Boolean(state.settings.ownerPinEnabled && !staffAllowedTabs.includes(tab) && !ownerUnlocked)
-  const isStaffMode = Boolean(state.settings.ownerPinEnabled && !ownerUnlocked)
+  const websiteAllowedTabs: Tab[] = webRole === 'owner' || webRole === 'manager'
+    ? ['dashboard', 'billing', 'inventory', 'rates', 'purchases', 'wastage', 'customers', 'suppliers', 'payments', 'reports', 'settings']
+    : webRole === 'viewer'
+      ? ['dashboard', 'reports']
+      : defaultStaffAllowedTabs
+  const staffAllowedTabs = isWebsite ? websiteAllowedTabs : ((state.settings.staffAllowedTabs?.length ? state.settings.staffAllowedTabs : defaultStaffAllowedTabs) as Tab[])
+  const ownerAccessRequired = isWebsite ? Boolean(state.settings.cloudAccessToken && !staffAllowedTabs.includes(tab)) : Boolean(state.settings.ownerPinEnabled && !staffAllowedTabs.includes(tab) && !ownerUnlocked)
+  const isStaffMode = isWebsite ? Boolean(webRole && webRole !== 'owner' && webRole !== 'manager') : Boolean(state.settings.ownerPinEnabled && !ownerUnlocked)
   useEffect(() => {
     let cancelled = false
     const api = window.desktopApp
@@ -65,15 +74,19 @@ export default function App() {
     ['dashboard', t.dashboard, BarChart3], ['billing', t.billing, Receipt], ['inventory', t.inventory, Boxes], ['rates', state.settings.language === 'hi' ? 'दैनिक रेट' : 'Daily Rates', Keyboard], ['purchases', t.purchases, PackagePlus], ['wastage', t.wastage, TrendingDown], ['customers', t.customers, Users], ['suppliers', t.suppliers, Truck], ['payments', t.payments, CreditCard], ['reports', t.reports, ShoppingCart], ['settings', t.settings, Settings]
   ] as const
 
+  if (isWebsite && (!state.settings.cloudAccessToken || !state.settings.cloudShopId)) {
+    return <WebCloudLogin currentState={state} onLoad={(loaded) => { saveState(loaded); setState(loaded) }} />
+  }
+
   return <div className="app">
     <header className="topbar">
       <div className="head-row">
         <div><h1>{state.settings.name || t.appName}</h1><p>{t.tagline}</p></div>
-        <div className="head-actions"><Button variant="secondary" onClick={() => patch(s => ({ ...s, settings: { ...s.settings, language: s.settings.language === 'en' ? 'hi' : 'en' } }))}><Languages size={16}/>{state.settings.language === 'en' ? 'हिन्दी' : 'English'}</Button>{isStaffMode && <span className="mode-badge staff">Staff Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && <span className="mode-badge owner">Owner Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && <Button variant="secondary" onClick={() => setOwnerUnlocked(false)}>Lock Owner</Button>}<span className="offline">Offline</span></div>
+        <div className="head-actions"><Button variant="secondary" onClick={() => patch(s => ({ ...s, settings: { ...s.settings, language: s.settings.language === 'en' ? 'hi' : 'en' } }))}><Languages size={16}/>{state.settings.language === 'en' ? 'हिन्दी' : 'English'}</Button>{isWebsite && webRole && <span className={`mode-badge ${webRole === 'owner' || webRole === 'manager' ? 'owner' : 'staff'}`}>Web {webRole}</span>}{isStaffMode && !isWebsite && <span className="mode-badge staff">Staff Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <span className="mode-badge owner">Owner Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <Button variant="secondary" onClick={() => setOwnerUnlocked(false)}>Lock Owner</Button>}<span className="offline">Offline</span></div>
       </div>
       <nav>{nav.map(([key, label, Icon]) => <button key={key} onClick={() => setTab(key)} className={tab === key ? 'active' : ''}><Icon size={16}/>{label}</button>)}</nav>
     </header>
-    <AutoCloudPush s={state} patch={patch} />
+    {isDesktop && <AutoCloudPush s={state} patch={patch} />}
     <main>
       {!ownerAccessRequired && tab === 'dashboard' && <Dashboard s={state} patch={patch} t={t} ownerUnlocked={!isStaffMode}/>} 
       {!ownerAccessRequired && tab === 'billing' && <Billing s={state} patch={patch} t={t}/>} 

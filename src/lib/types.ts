@@ -20,6 +20,7 @@ export interface ShopSettings {
   cloudShopId: string
   cloudEmail: string
   cloudUserId: string
+  cloudRole: string
   cloudAccessToken: string
   cloudRefreshToken: string
   lastCloudSyncAt: string

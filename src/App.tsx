@@ -31,8 +31,9 @@ export default function App() {
     window.desktopApp?.setAppState?.(next).catch(err => console.error('SQLite save failed', err))
     return next
   })
-  const protectedTabs: Tab[] = ['reports', 'settings']
-  const ownerAccessRequired = Boolean(state.settings.ownerPinEnabled && protectedTabs.includes(tab) && !ownerUnlocked)
+  const defaultStaffAllowedTabs: Tab[] = ['dashboard', 'billing', 'customers', 'payments', 'wastage']
+  const staffAllowedTabs = (state.settings.staffAllowedTabs?.length ? state.settings.staffAllowedTabs : defaultStaffAllowedTabs) as Tab[]
+  const ownerAccessRequired = Boolean(state.settings.ownerPinEnabled && !staffAllowedTabs.includes(tab) && !ownerUnlocked)
   const isStaffMode = Boolean(state.settings.ownerPinEnabled && !ownerUnlocked)
   useEffect(() => {
     let cancelled = false
@@ -74,15 +75,15 @@ export default function App() {
     </header>
     <AutoCloudPush s={state} patch={patch} />
     <main>
-      {tab === 'dashboard' && <Dashboard s={state} patch={patch} t={t} ownerUnlocked={!isStaffMode}/>} 
-      {tab === 'billing' && <Billing s={state} patch={patch} t={t}/>} 
-      {tab === 'inventory' && <Inventory s={state} patch={patch} t={t}/>} 
-      {tab === 'rates' && <DailyRates s={state} patch={patch} t={t}/>} 
-      {tab === 'purchases' && <Purchases s={state} patch={patch} t={t}/>} 
-      {tab === 'wastage' && <Wastage s={state} patch={patch} t={t}/>} 
-      {tab === 'customers' && <Customers s={state} patch={patch} t={t}/>} 
-      {tab === 'suppliers' && <Suppliers s={state} patch={patch} t={t}/>} 
-      {tab === 'payments' && <Payments s={state} patch={patch} t={t}/>} 
+      {!ownerAccessRequired && tab === 'dashboard' && <Dashboard s={state} patch={patch} t={t} ownerUnlocked={!isStaffMode}/>} 
+      {!ownerAccessRequired && tab === 'billing' && <Billing s={state} patch={patch} t={t}/>} 
+      {!ownerAccessRequired && tab === 'inventory' && <Inventory s={state} patch={patch} t={t}/>} 
+      {!ownerAccessRequired && tab === 'rates' && <DailyRates s={state} patch={patch} t={t}/>} 
+      {!ownerAccessRequired && tab === 'purchases' && <Purchases s={state} patch={patch} t={t}/>} 
+      {!ownerAccessRequired && tab === 'wastage' && <Wastage s={state} patch={patch} t={t}/>} 
+      {!ownerAccessRequired && tab === 'customers' && <Customers s={state} patch={patch} t={t}/>} 
+      {!ownerAccessRequired && tab === 'suppliers' && <Suppliers s={state} patch={patch} t={t}/>} 
+      {!ownerAccessRequired && tab === 'payments' && <Payments s={state} patch={patch} t={t}/>} 
       {ownerAccessRequired && <PinGate settings={state.settings} onUnlock={() => setOwnerUnlocked(true)} />}
       {!ownerAccessRequired && tab === 'reports' && <Reports s={state} patch={patch} t={t}/>} 
       {!ownerAccessRequired && tab === 'settings' && <AppSettings s={state} patch={patch} t={t} onLockOwner={() => setOwnerUnlocked(false)} />} 

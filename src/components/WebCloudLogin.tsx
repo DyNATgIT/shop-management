@@ -25,7 +25,7 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
       setSession({ ...settings })
       setMemberships(rows)
       if (rows[0]) setSelected(rows[0].shop_id)
-      setMessage(rows.length ? 'Signed in. Select a shop to load.' : 'Signed in, but no shop membership found. Create/connect shop from desktop owner mode first.')
+      setMessage(rows.length ? 'Signed in. Your role is loaded from Supabase. Select a shop to continue.' : 'Signed in, but no shop membership found. Ask the owner to add this email to shop_users.')
     } catch (error) {
       setMessage(`Sign in failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
@@ -34,7 +34,7 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
   const loadShop = async () => {
     const row = memberships.find(m => m.shop_id === selected)
     if (!session || !row) return
-    setMessage('Loading cloud shop data...')
+    setMessage(`Loading ${row.role} mode...`)
     try {
       const settings = { ...session, cloudShopId: row.shop_id, cloudRole: row.role, cloudSyncEnabled: true }
       const loaded = await fetchCloudState({ ...demoState, ...currentState, settings: { ...demoState.settings, ...currentState.settings, ...settings } }, settings)
@@ -44,5 +44,5 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
     }
   }
 
-  return <div className="web-login-page"><Card className="pad web-login-card"><h1>Vegetable Shop Manager</h1><p className="muted">Website mode uses Supabase login and role-based access. Desktop SQLite remains recommended for shop counter billing.</p><div className="form-grid"><Input value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} placeholder="Supabase URL"/><Input value={anonKey} onChange={e => setAnonKey(e.target.value)} placeholder="Supabase anon key"/><Input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"/><Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"/><Button onClick={signIn}>Sign In</Button></div>{memberships.length > 0 && <div className="web-shop-select"><Select value={selected} onChange={e => setSelected(e.target.value)}>{memberships.map(m => <option key={m.shop_id} value={m.shop_id}>{m.shops?.name || m.shop_id} — {m.role}</option>)}</Select><Button onClick={loadShop}>Load Shop</Button></div>}<p className="muted">{message}</p></Card></div>
+  return <div className="web-login-page"><Card className="pad web-login-card"><h1>Owner / Staff / Viewer Login</h1><p className="muted">Sign in with Supabase. The app checks your role from <b>shop_users</b> and opens the correct mode automatically.</p><div className="role-preview"><div><b>Owner</b><small>Full access: billing, stock, reports, settings, sync.</small></div><div><b>Staff</b><small>Counter access: billing, customers, payments, wastage.</small></div><div><b>Viewer</b><small>Read-only style access: dashboard and reports.</small></div></div><div className="form-grid"><Input value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} placeholder="Supabase URL"/><Input value={anonKey} onChange={e => setAnonKey(e.target.value)} placeholder="Supabase anon key"/><Input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"/><Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"/><Button onClick={signIn}>Sign In</Button></div>{memberships.length > 0 && <div className="web-shop-select"><Select value={selected} onChange={e => setSelected(e.target.value)}>{memberships.map(m => <option key={m.shop_id} value={m.shop_id}>{m.shops?.name || m.shop_id} — {m.role}</option>)}</Select><Button onClick={loadShop}>Continue</Button></div>}<p className="muted">{message}</p></Card></div>
 }

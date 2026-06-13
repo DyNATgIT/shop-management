@@ -3,6 +3,7 @@ import { BarChart3, Boxes, CreditCard, Keyboard, Languages, PackagePlus, Receipt
 import { tFor } from './lib/i18n'
 import { AppState } from './lib/types'
 import { demoState, loadState, saveState } from './lib/store'
+import { withAuditLogs } from './lib/audit'
 import { Button } from './components/ui'
 import Dashboard from './components/Dashboard'
 import Billing from './components/Billing'
@@ -25,7 +26,7 @@ export default function App() {
   const [ownerUnlocked, setOwnerUnlocked] = useState(false)
   const t = tFor(state.settings.language)
   const patch = (fn: (state: AppState) => AppState) => setState(prev => {
-    const next = fn(prev)
+    const next = withAuditLogs(prev, fn(prev))
     saveState(next)
     window.desktopApp?.setAppState?.(next).catch(err => console.error('SQLite save failed', err))
     return next

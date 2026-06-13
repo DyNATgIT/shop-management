@@ -160,6 +160,14 @@ export interface ReturnRecord {
   reason: string
 }
 
+
+export interface AuditLog {
+  id: string
+  date: string
+  type: 'sale' | 'cancel' | 'return' | 'purchase' | 'payment' | 'expense' | 'inventory' | 'customer' | 'supplier' | 'backup' | 'sync' | 'security' | 'system'
+  message: string
+}
+
 export interface AppState {
   settings: ShopSettings
   vegetables: Vegetable[]
@@ -171,6 +179,7 @@ export interface AppState {
   stockLogs: StockLog[]
   payments: Payment[]
   returns: ReturnRecord[]
+  auditLogs: AuditLog[]
   billCounter: number
   lastBackupAt?: string
 }

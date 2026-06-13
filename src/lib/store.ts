@@ -26,7 +26,7 @@ export const demoState: AppState = {
   suppliers: [
     { id: 's1', name: 'Azadpur Mandi Supplier', phone: '9000000000', address: 'Mandi' }
   ],
-  sales: [], purchases: [], expenses: [], stockLogs: [], payments: [], returns: [], billCounter: 1, lastBackupAt: ''
+  sales: [], purchases: [], expenses: [], stockLogs: [], payments: [], returns: [], auditLogs: [], billCounter: 1, lastBackupAt: ''
 }
 
 export const loadState = (): AppState => {

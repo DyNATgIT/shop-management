@@ -7,6 +7,7 @@ import DatabaseStatus from './DatabaseStatus'
 function sameDay(date: string) { return new Date(date).toDateString() === new Date().toDateString() }
 
 export default function Dashboard({ s, patch, t, ownerUnlocked }: any) {
+  const isDesktop = Boolean(window.desktopApp?.isDesktop)
   const todaySales = s.sales.filter((x: any) => !x.cancelledAt && sameDay(x.date))
   const todayPurchases = s.purchases.filter((x: any) => sameDay(x.date))
   const todayExpenses = s.expenses.filter((x: any) => sameDay(x.date))
@@ -14,6 +15,7 @@ export default function Dashboard({ s, patch, t, ownerUnlocked }: any) {
   const stockValue = s.vegetables.reduce((sum: number, v: Vegetable) => sum + v.stock * v.purchaseRate, 0)
   const due = s.customers.reduce((sum: number, c: Customer) => sum + c.balance, 0)
   return <div className="space">
+    {!isDesktop && <Card className="pad web-mode-alert"><div><h2>Web Browser Mode</h2><p className="muted">This browser version stores data in this browser unless you use Cloud Sync. For shop counter use, desktop SQLite is safer.</p></div></Card>}
     {!hasBackupToday(s) && <Card className="pad backup-alert"><div><h2>Backup not taken today</h2><p className="muted">Please take a backup before closing the shop.</p></div><Button onClick={() => patch((old: AppState) => downloadBackup(old))}>Backup Now</Button></Card>}
     <DatabaseStatus compact settings={s.settings} />
     <div className="metrics"><Metric title={t.todaySales} value={money(todaySales.reduce((a: number, x: any) => a + x.total, 0))}/><Metric title={t.billsToday} value={String(todaySales.length)} tone="green"/>{ownerUnlocked ? <Metric title={t.stockValue} value={money(stockValue)} tone="amber"/> : <Metric title={t.products} value={String(s.vegetables.length)} tone="amber"/>}{ownerUnlocked ? <Metric title={t.customerDue} value={money(due)} tone="red"/> : <Metric title={t.lowStock} value={String(low.length)} tone="red"/>}</div>

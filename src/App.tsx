@@ -21,6 +21,11 @@ import WebCloudLogin from './components/WebCloudLogin'
 
 type Tab = 'dashboard' | 'billing' | 'inventory' | 'rates' | 'purchases' | 'wastage' | 'customers' | 'suppliers' | 'payments' | 'reports' | 'settings'
 
+
+function WebAccessDenied({ role, onLogout }: { role: string, onLogout: () => void }) {
+  return <div className="pin-wrap"><div className="card pad pin-card"><div className="pin-icon">🛡️</div><h2>Access restricted</h2><p className="muted">You are signed in as <b>{role || 'unknown'}</b>. This section is not available for your website role.</p><p className="muted">If this is wrong, logout and sign in with an owner/manager account.</p><button className="btn full" onClick={onLogout}>Logout / Change Account</button></div></div>
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>(loadState)
   const [tab, setTab] = useState<Tab>('dashboard')
@@ -44,6 +49,10 @@ export default function App() {
   const staffAllowedTabs = isWebsite ? websiteAllowedTabs : ((state.settings.staffAllowedTabs?.length ? state.settings.staffAllowedTabs : defaultStaffAllowedTabs) as Tab[])
   const ownerAccessRequired = isWebsite ? Boolean(state.settings.cloudAccessToken && !staffAllowedTabs.includes(tab)) : Boolean(state.settings.ownerPinEnabled && !staffAllowedTabs.includes(tab) && !ownerUnlocked)
   const isStaffMode = isWebsite ? Boolean(webRole && webRole !== 'owner' && webRole !== 'manager') : Boolean(state.settings.ownerPinEnabled && !ownerUnlocked)
+  const clearWebSession = () => patch((old: AppState) => ({
+    ...old,
+    settings: { ...old.settings, cloudAccessToken: '', cloudRefreshToken: '', cloudUserId: '', cloudRole: '', cloudShopId: '', cloudSyncEnabled: false }
+  }))
   useEffect(() => {
     let cancelled = false
     const api = window.desktopApp
@@ -74,7 +83,7 @@ export default function App() {
     ['dashboard', t.dashboard, BarChart3], ['billing', t.billing, Receipt], ['inventory', t.inventory, Boxes], ['rates', state.settings.language === 'hi' ? 'दैनिक रेट' : 'Daily Rates', Keyboard], ['purchases', t.purchases, PackagePlus], ['wastage', t.wastage, TrendingDown], ['customers', t.customers, Users], ['suppliers', t.suppliers, Truck], ['payments', t.payments, CreditCard], ['reports', t.reports, ShoppingCart], ['settings', t.settings, Settings]
   ] as const
 
-  if (isWebsite && (!state.settings.cloudAccessToken || !state.settings.cloudShopId)) {
+  if (isWebsite && (!state.settings.cloudAccessToken || !state.settings.cloudShopId || !state.settings.cloudRole)) {
     return <WebCloudLogin currentState={state} onLoad={(loaded) => { saveState(loaded); setState(loaded) }} />
   }
 
@@ -82,7 +91,7 @@ export default function App() {
     <header className="topbar">
       <div className="head-row">
         <div><h1>{state.settings.name || t.appName}</h1><p>{t.tagline}</p></div>
-        <div className="head-actions"><Button variant="secondary" onClick={() => patch(s => ({ ...s, settings: { ...s.settings, language: s.settings.language === 'en' ? 'hi' : 'en' } }))}><Languages size={16}/>{state.settings.language === 'en' ? 'हिन्दी' : 'English'}</Button>{isWebsite && webRole && <span className={`mode-badge ${webRole === 'owner' || webRole === 'manager' ? 'owner' : 'staff'}`}>Web {webRole}</span>}{isStaffMode && !isWebsite && <span className="mode-badge staff">Staff Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <span className="mode-badge owner">Owner Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <Button variant="secondary" onClick={() => setOwnerUnlocked(false)}>Lock Owner</Button>}<span className="offline">Offline</span></div>
+        <div className="head-actions"><Button variant="secondary" onClick={() => patch(s => ({ ...s, settings: { ...s.settings, language: s.settings.language === 'en' ? 'hi' : 'en' } }))}><Languages size={16}/>{state.settings.language === 'en' ? 'हिन्दी' : 'English'}</Button>{isWebsite && webRole && <span className={`mode-badge ${webRole === 'owner' || webRole === 'manager' ? 'owner' : 'staff'}`}>Web {webRole}</span>}{isWebsite && webRole && <Button variant="secondary" onClick={clearWebSession}>Web Logout</Button>}{isStaffMode && !isWebsite && <span className="mode-badge staff">Staff Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <span className="mode-badge owner">Owner Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <Button variant="secondary" onClick={() => setOwnerUnlocked(false)}>Lock Owner</Button>}<span className="offline">Offline</span></div>
       </div>
       <nav>{nav.map(([key, label, Icon]) => <button key={key} onClick={() => setTab(key)} className={tab === key ? 'active' : ''}><Icon size={16}/>{label}</button>)}</nav>
     </header>
@@ -97,7 +106,7 @@ export default function App() {
       {!ownerAccessRequired && tab === 'customers' && <Customers s={state} patch={patch} t={t}/>} 
       {!ownerAccessRequired && tab === 'suppliers' && <Suppliers s={state} patch={patch} t={t}/>} 
       {!ownerAccessRequired && tab === 'payments' && <Payments s={state} patch={patch} t={t}/>} 
-      {ownerAccessRequired && <PinGate settings={state.settings} onUnlock={() => setOwnerUnlocked(true)} />}
+      {ownerAccessRequired && (isWebsite ? <WebAccessDenied role={webRole} onLogout={clearWebSession} /> : <PinGate settings={state.settings} onUnlock={() => setOwnerUnlocked(true)} />)}
       {!ownerAccessRequired && tab === 'reports' && <Reports s={state} patch={patch} t={t}/>} 
       {!ownerAccessRequired && tab === 'settings' && <AppSettings s={state} patch={patch} t={t} onLockOwner={() => setOwnerUnlocked(false)} />} 
     </main>

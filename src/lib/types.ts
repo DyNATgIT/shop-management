@@ -34,6 +34,7 @@ export interface ShopSettings {
   ownerPinEnabled: boolean
   ownerPin: string
   ownerPinHash: string
+  staffAllowedTabs: string[]
 }
 
 

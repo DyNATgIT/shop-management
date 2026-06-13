@@ -470,6 +470,121 @@ create policy "expenses owner manager" on public.expenses for all using (public.
 create policy "returns owner manager" on public.returns for all using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
 create policy "sync_devices owner manager" on public.sync_devices for all using (public.user_has_shop_role(shop_id, array['owner','manager'])) with check (public.user_has_shop_role(shop_id, array['owner','manager']));
 
+
+-- Team invite codes for manager/staff website access
+create table if not exists public.shop_invites (
+  id uuid primary key default gen_random_uuid(),
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  code text not null unique,
+  role text not null check (role in ('manager', 'staff')),
+  created_by uuid references auth.users(id) on delete set null,
+  expires_at timestamptz,
+  used_by uuid references auth.users(id) on delete set null,
+  used_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_shop_invites_shop on public.shop_invites(shop_id);
+create index if not exists idx_shop_invites_code on public.shop_invites(code);
+
+alter table public.shop_invites enable row level security;
+
+drop trigger if exists set_shop_invites_updated_at on public.shop_invites;
+create trigger set_shop_invites_updated_at before update on public.shop_invites for each row execute function public.set_updated_at();
+
+drop policy if exists "shop_invites owner manager access" on public.shop_invites;
+create policy "shop_invites owner manager access" on public.shop_invites
+for select using (public.user_has_shop_role(shop_id, array['owner','manager']));
+
+-- Owner/manager creates invite code. Role can only be manager or staff.
+create or replace function public.create_shop_invite(
+  p_shop_id uuid,
+  p_role text,
+  p_expires_hours integer default 168
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  invite_code text;
+  current_user_id uuid;
+begin
+  current_user_id := auth.uid();
+  if current_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not public.user_has_shop_role(p_shop_id, array['owner','manager']) then
+    raise exception 'Access denied';
+  end if;
+
+  if p_role not in ('manager', 'staff') then
+    raise exception 'Invalid role';
+  end if;
+
+  invite_code := upper(p_role) || '-' || upper(substr(encode(gen_random_bytes(5), 'hex'), 1, 10));
+
+  insert into public.shop_invites (shop_id, code, role, created_by, expires_at)
+  values (p_shop_id, invite_code, p_role, current_user_id, now() + make_interval(hours => coalesce(p_expires_hours, 168)));
+
+  return invite_code;
+end;
+$$;
+
+grant execute on function public.create_shop_invite(uuid, text, integer) to authenticated;
+
+-- Logged-in user accepts invite code and becomes manager/staff for that shop.
+create or replace function public.accept_shop_invite(p_code text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  invite_row public.shop_invites%rowtype;
+  current_user_id uuid;
+begin
+  current_user_id := auth.uid();
+  if current_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select * into invite_row
+  from public.shop_invites
+  where code = upper(trim(p_code))
+  limit 1;
+
+  if invite_row.id is null then
+    raise exception 'Invalid invite code';
+  end if;
+
+  if invite_row.used_at is not null then
+    raise exception 'Invite code already used';
+  end if;
+
+  if invite_row.expires_at is not null and invite_row.expires_at < now() then
+    raise exception 'Invite code expired';
+  end if;
+
+  insert into public.shop_users (shop_id, user_id, role)
+  values (invite_row.shop_id, current_user_id, invite_row.role)
+  on conflict (shop_id, user_id) do update set role = excluded.role;
+
+  update public.shop_invites
+  set used_by = current_user_id, used_at = now()
+  where id = invite_row.id;
+
+  return invite_row.shop_id;
+end;
+$$;
+
+grant execute on function public.accept_shop_invite(text) to authenticated;
+
+notify pgrst, 'reload schema';
+
 -- Notes:
 -- 1. Desktop local IDs are stored in local_id for mapping SQLite records to cloud UUIDs.
 -- 2. For first sync, create a shop, create shop_users membership, then upsert records by (shop_id, local_id).

@@ -13,6 +13,7 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
   const [selected, setSelected] = useState('')
   const [session, setSession] = useState<any>(null)
   const [message, setMessage] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
 
   const signIn = async () => {
     setMessage('Signing in...')
@@ -44,5 +45,27 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
     }
   }
 
-  return <div className="web-login-page"><Card className="pad web-login-card"><h1>Owner / Staff / Viewer Login</h1><p className="muted">Sign in with Supabase. The app checks your role from <b>shop_users</b> and opens the correct mode automatically.</p><div className="role-preview"><div><b>Owner</b><small>Full access: billing, stock, reports, settings, sync.</small></div><div><b>Staff</b><small>Counter access: billing, customers, payments, wastage.</small></div><div><b>Viewer</b><small>Read-only style access: dashboard and reports.</small></div></div><div className="form-grid"><Input value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} placeholder="Supabase URL"/><Input value={anonKey} onChange={e => setAnonKey(e.target.value)} placeholder="Supabase anon key"/><Input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"/><Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"/><Button onClick={signIn}>Sign In</Button></div>{memberships.length > 0 && <div className="web-shop-select"><Select value={selected} onChange={e => setSelected(e.target.value)}>{memberships.map(m => <option key={m.shop_id} value={m.shop_id}>{m.shops?.name || m.shop_id} — {m.role}</option>)}</Select><Button onClick={loadShop}>Continue</Button></div>}<p className="muted">{message}</p></Card></div>
+  const acceptInvite = async () => {
+    if (!session) { setMessage('Sign in first, then enter invite code.'); return }
+    if (!inviteCode.trim()) { setMessage('Enter invite code.'); return }
+    setMessage('Accepting invite...')
+    try {
+      const res = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/rpc/accept_shop_invite`, {
+        method: 'POST',
+        headers: { apikey: anonKey, Authorization: `Bearer ${session.cloudAccessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_code: inviteCode.trim().toUpperCase() })
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) { setMessage(data?.message || data?.hint || `Invite failed: ${res.status}`); return }
+      const rows = await getCloudMemberships(session)
+      setMemberships(rows)
+      setSelected(typeof data === 'string' ? data : rows[0]?.shop_id || '')
+      setInviteCode('')
+      setMessage('Invite accepted. Select shop and continue.')
+    } catch (error) {
+      setMessage(`Invite failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  return <div className="web-login-page"><Card className="pad web-login-card"><h1>Owner / Manager / Staff Login</h1><p className="muted">Sign in with Supabase. The app checks your role from <b>shop_users</b> and opens the correct mode automatically.</p><div className="role-preview"><div><b>Owner</b><small>Full access: billing, stock, reports, settings, sync.</small></div><div><b>Manager</b><small>Shop operations: billing, stock, rates, purchase, reports. No settings/security.</small></div><div><b>Staff</b><small>Counter access: billing, customers, payments, wastage.</small></div></div><div className="form-grid"><Input value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} placeholder="Supabase URL"/><Input value={anonKey} onChange={e => setAnonKey(e.target.value)} placeholder="Supabase anon key"/><Input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"/><Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"/><Button onClick={signIn}>Sign In</Button></div>{session && <div className="invite-join"><h3>Have an invite code?</h3><div className="web-shop-select"><Input value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())} placeholder="STAFF-XXXXXXXXXX or MANAGER-XXXXXXXXXX"/><Button variant="secondary" onClick={acceptInvite}>Join Shop</Button></div></div>}{memberships.length > 0 && <div className="web-shop-select"><Select value={selected} onChange={e => setSelected(e.target.value)}>{memberships.map(m => <option key={m.shop_id} value={m.shop_id}>{m.shops?.name || m.shop_id} — {m.role}</option>)}</Select><Button onClick={loadShop}>Continue</Button></div>}<p className="muted">{message}</p></Card></div>
 }

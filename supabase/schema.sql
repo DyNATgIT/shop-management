@@ -585,6 +585,174 @@ grant execute on function public.accept_shop_invite(text) to authenticated;
 
 notify pgrst, 'reload schema';
 
+
+-- Team management helpers
+alter table public.shop_users add column if not exists user_email text;
+
+-- Backfill emails for existing memberships when possible.
+update public.shop_users su
+set user_email = au.email
+from auth.users au
+where su.user_id = au.id
+and (su.user_email is null or su.user_email = '');
+
+create or replace function public.list_shop_members(p_shop_id uuid)
+returns table(user_id uuid, role text, user_email text, created_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.user_has_shop_role(p_shop_id, array['owner','manager']) then
+    raise exception 'Access denied';
+  end if;
+
+  return query
+  select su.user_id, su.role, coalesce(su.user_email, au.email) as user_email, su.created_at
+  from public.shop_users su
+  left join auth.users au on au.id = su.user_id
+  where su.shop_id = p_shop_id
+  order by su.created_at asc;
+end;
+$$;
+
+grant execute on function public.list_shop_members(uuid) to authenticated;
+
+create or replace function public.update_shop_member_role(
+  p_shop_id uuid,
+  p_user_id uuid,
+  p_role text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_current_role text;
+begin
+  v_current_role := public.user_shop_role(p_shop_id);
+  if v_current_role is null then
+    raise exception 'Access denied';
+  end if;
+
+  if p_role not in ('owner', 'manager', 'staff') then
+    raise exception 'Invalid role';
+  end if;
+
+  -- Only owner can assign owner role. Manager can manage manager/staff only.
+  if p_role = 'owner' and v_current_role <> 'owner' then
+    raise exception 'Only owner can assign owner role';
+  end if;
+
+  if v_current_role not in ('owner', 'manager') then
+    raise exception 'Access denied';
+  end if;
+
+  if v_current_role = 'manager' and exists (
+    select 1 from public.shop_users where shop_id = p_shop_id and user_id = p_user_id and role = 'owner'
+  ) then
+    raise exception 'Manager cannot change owner role';
+  end if;
+
+  update public.shop_users
+  set role = p_role
+  where shop_id = p_shop_id
+  and user_id = p_user_id;
+end;
+$$;
+
+grant execute on function public.update_shop_member_role(uuid, uuid, text) to authenticated;
+
+create or replace function public.remove_shop_member(
+  p_shop_id uuid,
+  p_user_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_current_role text;
+  v_target_role text;
+begin
+  v_current_role := public.user_shop_role(p_shop_id);
+  select role into v_target_role from public.shop_users where shop_id = p_shop_id and user_id = p_user_id;
+
+  if v_current_role not in ('owner', 'manager') then
+    raise exception 'Access denied';
+  end if;
+
+  if v_target_role = 'owner' and v_current_role <> 'owner' then
+    raise exception 'Only owner can remove owner';
+  end if;
+
+  -- Prevent removing the last owner.
+  if v_target_role = 'owner' and (select count(*) from public.shop_users where shop_id = p_shop_id and role = 'owner') <= 1 then
+    raise exception 'Cannot remove the last owner';
+  end if;
+
+  delete from public.shop_users
+  where shop_id = p_shop_id
+  and user_id = p_user_id;
+end;
+$$;
+
+grant execute on function public.remove_shop_member(uuid, uuid) to authenticated;
+
+-- Update invite acceptance to store email for easier team management.
+create or replace function public.accept_shop_invite(p_code text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  invite_row public.shop_invites%rowtype;
+  current_user_id uuid;
+  current_email text;
+begin
+  current_user_id := auth.uid();
+  if current_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select email into current_email from auth.users where id = current_user_id;
+
+  select * into invite_row
+  from public.shop_invites
+  where code = upper(trim(p_code))
+  limit 1;
+
+  if invite_row.id is null then
+    raise exception 'Invalid invite code';
+  end if;
+
+  if invite_row.used_at is not null then
+    raise exception 'Invite code already used';
+  end if;
+
+  if invite_row.expires_at is not null and invite_row.expires_at < now() then
+    raise exception 'Invite code expired';
+  end if;
+
+  insert into public.shop_users (shop_id, user_id, role, user_email)
+  values (invite_row.shop_id, current_user_id, invite_row.role, current_email)
+  on conflict (shop_id, user_id) do update set role = excluded.role, user_email = excluded.user_email;
+
+  update public.shop_invites
+  set used_by = current_user_id, used_at = now()
+  where id = invite_row.id;
+
+  return invite_row.shop_id;
+end;
+$$;
+
+grant execute on function public.accept_shop_invite(text) to authenticated;
+
+notify pgrst, 'reload schema';
+
 -- Notes:
 -- 1. Desktop local IDs are stored in local_id for mapping SQLite records to cloud UUIDs.
 -- 2. For first sync, create a shop, create shop_users membership, then upsert records by (shop_id, local_id).

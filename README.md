@@ -2,7 +2,7 @@
 
 ## Version
 
-Current version: **2.1.0**
+Current version: **2.2.0**
 
 
 A fresh rebuilt browser-based shop management app specifically for vegetable shops.

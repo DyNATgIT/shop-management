@@ -17,6 +17,7 @@ import Reports from './components/Reports'
 import AppSettings from './components/Settings'
 import PinGate from './components/PinGate'
 import AutoCloudPush from './components/AutoCloudPush'
+import { APP_VERSION } from './lib/version'
 import WebCloudLogin from './components/WebCloudLogin'
 
 type Tab = 'dashboard' | 'billing' | 'inventory' | 'rates' | 'purchases' | 'wastage' | 'customers' | 'suppliers' | 'payments' | 'reports' | 'settings'
@@ -91,7 +92,7 @@ export default function App() {
     <header className="topbar">
       <div className="head-row">
         <div><h1>{state.settings.name || t.appName}</h1><p>{t.tagline}</p></div>
-        <div className="head-actions"><Button variant="secondary" onClick={() => patch(s => ({ ...s, settings: { ...s.settings, language: s.settings.language === 'en' ? 'hi' : 'en' } }))}><Languages size={16}/>{state.settings.language === 'en' ? 'हिन्दी' : 'English'}</Button>{isWebsite && webRole && <span className={`mode-badge ${webRole === 'owner' ? 'owner' : webRole === 'manager' ? 'owner' : 'staff'}`}>Web {webRole}</span>}{isWebsite && webRole && <Button variant="secondary" onClick={clearWebSession}>Web Logout</Button>}{isStaffMode && !isWebsite && <span className="mode-badge staff">Staff Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <span className="mode-badge owner">Owner Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <Button variant="secondary" onClick={() => setOwnerUnlocked(false)}>Lock Owner</Button>}<span className="offline">Offline</span></div>
+        <div className="head-actions"><Button variant="secondary" onClick={() => patch(s => ({ ...s, settings: { ...s.settings, language: s.settings.language === 'en' ? 'hi' : 'en' } }))}><Languages size={16}/>{state.settings.language === 'en' ? 'हिन्दी' : 'English'}</Button>{isWebsite && webRole && <span className={`mode-badge ${webRole === 'owner' ? 'owner' : webRole === 'manager' ? 'owner' : 'staff'}`}>Web {webRole}</span>}{isWebsite && webRole && <Button variant="secondary" onClick={clearWebSession}>Web Logout</Button>}{isStaffMode && !isWebsite && <span className="mode-badge staff">Staff Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <span className="mode-badge owner">Owner Mode</span>}{state.settings.ownerPinEnabled && ownerUnlocked && !isWebsite && <Button variant="secondary" onClick={() => setOwnerUnlocked(false)}>Lock Owner</Button>}<span className="version-pill">v{APP_VERSION}</span><span className="offline">Offline</span></div>
       </div>
       <nav>{nav.map(([key, label, Icon]) => <button key={key} onClick={() => setTab(key)} className={tab === key ? 'active' : ''}><Icon size={16}/>{label}</button>)}</nav>
     </header>

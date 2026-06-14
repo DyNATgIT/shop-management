@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AppState, Unit, Vegetable } from '../lib/types'
 import { exportCsv, id, money, now, number, units } from '../lib/store'
 import { Button, Card, Input, Select } from './ui'
+import { showValidation, validateVegetableInput } from '../lib/validation'
 
 function parseCsv(text: string) {
   const rows: string[][] = []
@@ -37,7 +38,7 @@ export default function Inventory({ s, patch, t }: { s: AppState, patch: any, t:
   const list = s.vegetables.filter(v => `${v.name} ${v.hindiName} ${v.category} ${v.barcode}`.toLowerCase().includes(q.toLowerCase()))
 
   const save = () => {
-    if (!form.name) return
+    if (showValidation(validateVegetableInput(form))) return
     patch((old: AppState) => editId ? { ...old, vegetables: old.vegetables.map(v => v.id === editId ? { ...form, id: editId, lastUpdated: now() } : v) } : { ...old, vegetables: [{ ...form, id: id(), lastUpdated: now() }, ...old.vegetables] })
     setForm(blank)
     setEditId('')
@@ -74,7 +75,7 @@ export default function Inventory({ s, patch, t }: { s: AppState, patch: any, t:
           const name = get(row, 'name')
           if (!name) continue
           const unit = (get(row, 'unit') || 'kg') as Unit
-          imported.push({
+          const importedVegetable = {
             id: id(),
             name,
             hindiName: get(row, 'hindiName'),
@@ -88,7 +89,10 @@ export default function Inventory({ s, patch, t }: { s: AppState, patch: any, t:
             wastagePercent: number(get(row, 'wastagePercent')),
             active: true,
             lastUpdated: now()
-          })
+          }
+          const errors = validateVegetableInput(importedVegetable)
+          if (errors.length) throw new Error(`${name}: ${errors.join(' ')}`)
+          imported.push(importedVegetable)
         }
         if (!imported.length) throw new Error('No valid vegetables found')
         patch((old: AppState) => {

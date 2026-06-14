@@ -5,6 +5,7 @@ import { calcCart, id, makeStockLog, money, now, number, paymentModes } from '..
 import { previewSale, printSale } from '../lib/print'
 import { Button, Card, Input, Select } from './ui'
 import { Line } from './common'
+import { showValidation, validateCartItems, validatePositive } from '../lib/validation'
 
 export default function Billing({ s, patch, t }: { s: AppState, patch: (fn: (s: AppState) => AppState) => void, t: any }) {
   const searchRef = useRef<HTMLInputElement>(null)
@@ -35,6 +36,10 @@ export default function Billing({ s, patch, t }: { s: AppState, patch: (fn: (s: 
     setQuery('')
   }
   const addItem = (v: Vegetable, qty = 1, discount = 0) => {
+    const errors = [validatePositive(qty, `${v.name} quantity`)].filter(Boolean)
+    if (discount < 0) errors.push('Discount cannot be negative.')
+    if (discount > qty * v.sellingRate) errors.push('Discount cannot be greater than item amount.')
+    if (showValidation(errors)) return
     setCart(items => items.some(i => i.vegetableId === v.id)
       ? items.map(i => i.vegetableId === v.id ? { ...i, qty: Number((i.qty + qty).toFixed(2)), discount: Number((i.discount + discount).toFixed(2)) } : i)
       : [...items, { vegetableId: v.id, name: v.name, hindiName: v.hindiName, unit: v.unit, qty, rate: v.sellingRate, discount }])
@@ -45,7 +50,8 @@ export default function Billing({ s, patch, t }: { s: AppState, patch: (fn: (s: 
   }
   const chooseCustomer = (cid: string) => { setCustomerId(cid); const c = s.customers.find(x => x.id === cid); setCustomerName(c?.name || ''); setCustomerPhone(c?.phone || '') }
   const save = (shouldPrint: boolean) => {
-    if (!cart.length) return alert('Add vegetables first')
+    if (showValidation(validateCartItems(cart))) return
+    if (paid < 0 || !Number.isFinite(paid)) return alert('Paid amount cannot be negative or invalid.')
     const finalPaid = mode === 'Credit' ? 0 : (paid || totals.total)
     const sale = { id: id(), billNo: `BILL-${String(s.billCounter).padStart(5, '0')}`, date: now(), customerId, customerName: customerName || t.cashCustomer, customerPhone, items: cart, ...totals, paid: finalPaid, due: Math.max(0, totals.total - finalPaid), paymentMode: mode }
     patch(old => ({ ...old, billCounter: old.billCounter + 1, sales: [sale, ...old.sales], vegetables: old.vegetables.map(v => { const item = cart.find(i => i.vegetableId === v.id); return item ? { ...v, stock: Number((v.stock - item.qty).toFixed(2)), lastUpdated: now() } : v }), customers: old.customers.map(c => c.id === customerId ? { ...c, balance: c.balance + sale.due } : c), payments: finalPaid > 0 ? [{ id: id(), date: sale.date, partyType: 'customer', partyId: customerId, partyName: sale.customerName, amount: finalPaid, mode, note: sale.billNo }, ...old.payments] : old.payments, stockLogs: [...cart.map(i => { const v = old.vegetables.find(x => x.id === i.vegetableId)!; return makeStockLog(i.vegetableId, i.name, 'SALE', -i.qty, v.stock, sale.billNo) }), ...old.stockLogs] }))
@@ -54,7 +60,8 @@ export default function Billing({ s, patch, t }: { s: AppState, patch: (fn: (s: 
     setTimeout(() => searchRef.current?.focus(), 0)
   }
   const preview = () => {
-    if (!cart.length) return alert('Add vegetables first')
+    if (showValidation(validateCartItems(cart))) return
+    if (paid < 0 || !Number.isFinite(paid)) return alert('Paid amount cannot be negative or invalid.')
     const finalPaid = mode === 'Credit' ? 0 : (paid || totals.total)
     previewSale({ id: 'preview', billNo: `PREVIEW-${String(s.billCounter).padStart(5, '0')}`, date: now(), customerId, customerName: customerName || t.cashCustomer, customerPhone, items: cart, ...totals, paid: finalPaid, due: Math.max(0, totals.total - finalPaid), paymentMode: mode }, s.settings)
   }

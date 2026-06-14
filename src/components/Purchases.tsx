@@ -3,6 +3,7 @@ import { AppState, Purchase } from '../lib/types'
 import { id, makeStockLog, money, now, number } from '../lib/store'
 import { Button, Card, Input, Select } from './ui'
 import { Table } from './common'
+import { showValidation, validateNonNegative, validatePositive } from '../lib/validation'
 
 export default function Purchases({ s, patch, t }: { s: AppState, patch: any, t: any }) {
   const [supplierId, setSupplierId] = useState(s.suppliers[0]?.id || '')
@@ -18,7 +19,9 @@ export default function Purchases({ s, patch, t }: { s: AppState, patch: any, t:
   }
   const add = () => {
     const v = s.vegetables.find(x => x.id === vegetableId)
-    if (!v || qty <= 0) return
+    if (!v) return alert('Select a vegetable')
+    const errors = [validatePositive(qty, 'Purchase quantity'), validateNonNegative(rate, 'Purchase rate'), validateNonNegative(paid, 'Paid amount')].filter(Boolean)
+    if (showValidation(errors)) return
     const existingSupplier = s.suppliers.find(x => x.name.toLowerCase() === supplierName.trim().toLowerCase())
     const finalSupplierId = existingSupplier?.id || supplierId || id()
     const finalSupplierName = supplierName.trim() || 'Mandi'

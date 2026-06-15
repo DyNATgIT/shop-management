@@ -9,6 +9,7 @@ function formatQty(qty: number, unit: string) {
 
 function saleHtml(sale: Sale, settings: ShopSettings, autoPrint: boolean) {
   const is58 = settings.receiptSize === '58mm'
+  const pageHeight = is58 ? '200mm' : '297mm'
   const itemRows = sale.items.map((item, index) => {
     const amount = item.qty * item.rate - item.discount
     const primaryName = settings.printHindi && item.hindiName ? item.hindiName : item.name
@@ -56,7 +57,7 @@ function saleHtml(sale: Sale, settings: ShopSettings, autoPrint: boolean) {
     .receipt{width:var(--paper-width);max-width:100%;margin:auto;background:#fff;padding:${is58 ? '8px' : '12px'};box-shadow:0 10px 40px rgba(0,0,0,.12)}
     .center{text-align:center}.shop-name{font-size:${is58 ? '16px' : '18px'};font-weight:800;line-height:1.1;margin:0;text-transform:uppercase}.shop-meta{font-size:${is58 ? '10px' : '11px'};line-height:1.35;margin-top:4px}.bill-title{font-weight:800;letter-spacing:.08em;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);padding:6px 0;margin:8px 0}.meta{font-size:${is58 ? '10px' : '11px'};line-height:1.45;margin:7px 0}.meta .row,.line{display:flex;justify-content:space-between;gap:8px}.divider{border-top:1px dashed var(--line);margin:8px 0}
     table{width:100%;border-collapse:collapse;margin-top:6px}th,td{border-bottom:1px dashed #999;padding:5px 2px;text-align:right;vertical-align:top}th{font-size:10px;text-transform:uppercase}th:first-child,td:first-child{text-align:left}.name b{display:block;font-size:${is58 ? '11px' : '12px'}}small{display:block;color:var(--muted);font-size:${is58 ? '9px' : '10px'};line-height:1.25}.items-compact{border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);margin:8px 0}.item.compact{padding:6px 0;border-bottom:1px dashed #bbb}.item.compact:last-child{border-bottom:0}.item-name b{display:block;font-size:12px}.item-calc{display:flex;justify-content:space-between;gap:8px;margin-top:3px}.item-discount{font-size:10px;color:var(--muted);text-align:right}.totals{margin-top:8px}.line{margin:4px 0}.grand-total{border-top:2px solid var(--line);border-bottom:2px solid var(--line);padding:7px 0;margin:7px 0;font-size:${is58 ? '16px' : '18px'};font-weight:900}.payment{margin-top:6px}.upi-box{display:flex;gap:8px;align-items:center;border:1px dashed #333;padding:8px;margin-top:10px}.qr-placeholder{width:${is58 ? '48px' : '58px'};height:${is58 ? '48px' : '58px'};border:2px solid #111;display:grid;place-items:center;font-weight:900;line-height:1}.qr-placeholder small{font-size:8px;color:#111}.upi-text{font-size:10px;line-height:1.3}.upi-text b,.upi-text span{display:block}.footer{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px;font-weight:700;line-height:1.35}.actions{width:var(--paper-width);max-width:100%;margin:12px auto;display:flex;gap:8px}.actions button{padding:10px 14px;border:0;border-radius:8px;background:#111;color:#fff;font-weight:700}.actions button:last-child{background:#e5e7eb;color:#111}
-    @media print{body{background:#fff;padding:0}.receipt{box-shadow:none;padding:${is58 ? '2mm' : '3mm'}}.actions{display:none}@page{size:${settings.receiptSize} auto;margin:0}}
+    @media print{body{background:#fff;padding:0}.receipt{box-shadow:none;padding:${is58 ? '2mm' : '3mm'}}.actions{display:none}@page{size:${settings.receiptSize} ${pageHeight};margin:0}}
   </style></head><body><div class="receipt">
     <div class="center">
       <h1 class="shop-name">${settings.name}</h1>
@@ -82,7 +83,7 @@ function saleHtml(sale: Sale, settings: ShopSettings, autoPrint: boolean) {
     </div>
     ${upiBlock}
     <div class="center footer">${footer}</div>
-  </div><div class="actions"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div>${autoPrint ? '<script>window.print()</script>' : ''}</body></html>`
+  </div><div class="actions"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div>${autoPrint ? '<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},700);});</script>' : ''}</body></html>`
 }
 
 function openReceipt(sale: Sale, settings: ShopSettings, autoPrint: boolean) {

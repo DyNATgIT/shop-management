@@ -11,7 +11,10 @@
     "desktop:dev": "concurrently -k \"npm run dev -- --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron electron/main.cjs --dev\"",
     "desktop:preview": "npm run build && electron electron/main.cjs",
     "desktop:dist": "npm run build && electron-builder",
-    "desktop:rebuild": "electron-builder install-app-deps"
+    "desktop:rebuild": "electron-builder install-app-deps",
+    "write-version": "node scripts/write-version.cjs",
+    "prebuild": "npm run write-version",
+    "predesktop:dist": "npm run write-version"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",

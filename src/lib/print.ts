@@ -94,6 +94,19 @@ function openReceipt(sale: Sale, settings: ShopSettings, autoPrint: boolean) {
 }
 
 export function printSale(sale: Sale, settings: ShopSettings) {
+  const html = saleHtml(sale, settings, false)
+  if (window.desktopApp?.printReceiptHtml) {
+    window.desktopApp.printReceiptHtml(html).then(result => {
+      if (!result?.ok) {
+        console.error('Desktop print failed:', result?.error)
+        openReceipt(sale, settings, false)
+      }
+    }).catch(error => {
+      console.error('Desktop print failed:', error)
+      openReceipt(sale, settings, false)
+    })
+    return
+  }
   openReceipt(sale, settings, true)
 }
 

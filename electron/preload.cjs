@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('desktopApp', {
   getDatabaseInfo: () => ipcRenderer.invoke('db:get-info'),
   chooseBackupDir: () => ipcRenderer.invoke('db:choose-backup-dir'),
   setBackupDir: (dir) => ipcRenderer.invoke('db:set-backup-dir', dir),
-  resetBackupDir: () => ipcRenderer.invoke('db:reset-backup-dir')
+  resetBackupDir: () => ipcRenderer.invoke('db:reset-backup-dir'),
+  printReceiptHtml: (html) => ipcRenderer.invoke('print:receipt-html', html)
 })

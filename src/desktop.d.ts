@@ -38,6 +38,7 @@ declare global {
       chooseBackupDir: () => Promise<string | null>
       setBackupDir: (dir: string) => Promise<string>
       resetBackupDir: () => Promise<string>
+      printReceiptHtml: (html: string) => Promise<{ ok: boolean; error: string }>
     }
   }
 }

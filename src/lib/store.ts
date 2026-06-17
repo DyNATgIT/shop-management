@@ -10,7 +10,7 @@ export const unitLabel = (unit: Unit) => unit
 
 export const demoState: AppState = {
   settings: {
-    name: 'Fresh Sabzi Store', owner: 'Owner Name', address: 'Main Market, Your City', phone: '9876543210', language: 'en', receiptSize: '80mm', defaultLowStockKg: 5, printHindi: true, upiId: '', showUpiOnReceipt: false, receiptFooter: 'Thank you! धन्यवाद!', supabaseUrl: 'https://bthabwdutxntytevsled.supabase.co', supabaseAnonKey: '', cloudShopId: '', cloudEmail: '', cloudUserId: '', cloudRole: '', cloudAccessToken: '', cloudRefreshToken: '', lastCloudSyncAt: '', lastCloudPushAt: '', lastCloudPullAt: '', lastCloudSyncStatus: '', lastCloudSyncMessage: '', autoCloudPushEnabled: false, autoCloudPushMinutes: 10, lastAutoCloudPushAt: '', cloudSyncEnabled: false, ownerPinEnabled: false, ownerPin: '', ownerPinHash: '', staffAllowedTabs: ['dashboard', 'billing', 'customers', 'payments', 'wastage']
+    name: 'Fresh Sabzi Store', owner: 'Owner Name', address: 'Main Market, Your City', phone: '9876543210', language: 'en', receiptSize: '80mm', defaultLowStockKg: 5, printHindi: true, upiId: '9340570207@ptsbi', showUpiOnReceipt: true, receiptFooter: 'Thank you! धन्यवाद!', supabaseUrl: 'https://bthabwdutxntytevsled.supabase.co', supabaseAnonKey: '', cloudShopId: '', cloudEmail: '', cloudUserId: '', cloudRole: '', cloudAccessToken: '', cloudRefreshToken: '', lastCloudSyncAt: '', lastCloudPushAt: '', lastCloudPullAt: '', lastCloudSyncStatus: '', lastCloudSyncMessage: '', autoCloudPushEnabled: false, autoCloudPushMinutes: 10, lastAutoCloudPushAt: '', cloudSyncEnabled: false, ownerPinEnabled: false, ownerPin: '', ownerPinHash: '', staffAllowedTabs: ['dashboard', 'billing', 'customers', 'payments', 'wastage']
   },
   vegetables: [
     { id: 'v1', name: 'Tomato', hindiName: 'टमाटर', category: 'Vegetables', unit: 'kg', barcode: 'TOM', purchaseRate: 24, sellingRate: 35, stock: 32, lowStock: 5, wastagePercent: 4, active: true, lastUpdated: now() },
@@ -43,7 +43,7 @@ export const loadState = (): AppState => {
 export const saveState = (state: AppState) => localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 
 export const calcCart = (items: CartItem[]) => {
-  const subtotal = items.reduce((sum, item) => sum + item.qty * item.rate, 0)
+  const subtotal = items.reduce((sum, item) => sum + (item.stockQty ?? item.qty) * item.rate, 0)
   const discount = items.reduce((sum, item) => sum + item.discount, 0)
   const rawTotal = Math.max(0, subtotal - discount)
   const rounded = Math.round(rawTotal)
@@ -79,3 +79,20 @@ export const makeStockLog = (vegetableId: string, vegetableName: string, type: S
 
 export const paymentModes: PaymentMode[] = ['Cash', 'UPI', 'Card', 'Credit', 'Mixed']
 export const units: Unit[] = ['kg', 'g', 'piece', 'dozen', 'bunch', 'crate']
+
+export function toStockQty(qty: number, saleUnit: string, stockUnit: string) {
+  const from = (saleUnit || '').toLowerCase().trim()
+  const to = (stockUnit || '').toLowerCase().trim()
+  if (!Number.isFinite(qty)) return 0
+  if (!from || !to || from === to) return qty
+  if (to === 'kg' && (from === 'g' || from === 'gram' || from === 'grams')) return qty / 1000
+  if ((to === 'g' || to === 'gram' || to === 'grams') && from === 'kg') return qty * 1000
+  return qty
+}
+
+export function saleUnitsFor(stockUnit: string) {
+  const unit = (stockUnit || '').toLowerCase().trim()
+  if (unit === 'kg') return ['kg', 'g']
+  if (unit === 'g' || unit === 'gram' || unit === 'grams') return ['g', 'kg']
+  return [stockUnit || 'unit']
+}

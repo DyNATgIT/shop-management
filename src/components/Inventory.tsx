@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { AppState, Unit, Vegetable } from '../lib/types'
 import { exportCsv, id, money, now, number, units } from '../lib/store'
-import { Button, Card, Input, Select } from './ui'
+import { Button, Card, Input } from './ui'
 import { showValidation, validateVegetableInput } from '../lib/validation'
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return <label className="field-wrap"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>
+}
 
 function parseCsv(text: string) {
   const rows: string[][] = []
@@ -57,7 +61,8 @@ export default function Inventory({ s, patch, t }: { s: AppState, patch: any, t:
   const downloadTemplate = () => {
     exportCsv([
       { name: 'Tomato', hindiName: 'टमाटर', category: 'Vegetables', unit: 'kg', barcode: 'TOM', purchaseRate: 25, sellingRate: 40, stock: 30, lowStock: 5, wastagePercent: 5 },
-      { name: 'Coriander', hindiName: 'धनिया', category: 'Leafy', unit: 'bunch', barcode: 'COR', purchaseRate: 5, sellingRate: 10, stock: 40, lowStock: 10, wastagePercent: 15 }
+      { name: 'Coriander', hindiName: 'धनिया', category: 'Leafy', unit: 'bunch', barcode: 'COR', purchaseRate: 5, sellingRate: 10, stock: 40, lowStock: 10, wastagePercent: 15 },
+      { name: 'Lemon', hindiName: 'नींबू', category: 'Vegetables', unit: 'piece', barcode: 'LEM', purchaseRate: 2, sellingRate: 5, stock: 100, lowStock: 20, wastagePercent: 3 }
     ], 'vegetables-import-template.csv')
   }
 
@@ -74,13 +79,12 @@ export default function Inventory({ s, patch, t }: { s: AppState, patch: any, t:
         for (const row of rows.slice(1)) {
           const name = get(row, 'name')
           if (!name) continue
-          const unit = (get(row, 'unit') || 'kg') as Unit
           const importedVegetable = {
             id: id(),
             name,
             hindiName: get(row, 'hindiName'),
             category: get(row, 'category') || 'Vegetables',
-            unit: units.includes(unit) ? unit : 'kg',
+            unit: (get(row, 'unit') || 'kg') as Unit,
             barcode: get(row, 'barcode'),
             purchaseRate: number(get(row, 'purchaseRate')),
             sellingRate: number(get(row, 'sellingRate')),
@@ -120,5 +124,22 @@ export default function Inventory({ s, patch, t }: { s: AppState, patch: any, t:
     reader.readAsText(file)
   }
 
-  return <div className="space"><Card className="pad"><h2>{t.inventory}</h2><div className="form-grid"><Input placeholder={t.name} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}/><Input placeholder={t.hindiName} value={form.hindiName} onChange={e => setForm({ ...form, hindiName: e.target.value })}/><Input placeholder={t.category} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}/><Select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value as any })}>{units.map(u => <option key={u} value={u}>{t[u]}</option>)}</Select><Input placeholder={t.barcode} value={form.barcode} onChange={e => setForm({ ...form, barcode: e.target.value })}/><Input type="number" placeholder={t.stock} value={form.stock} onChange={e => setForm({ ...form, stock: number(e.target.value) })}/><Input type="number" placeholder={t.purchaseRate} value={form.purchaseRate} onChange={e => setForm({ ...form, purchaseRate: number(e.target.value) })}/><Input type="number" placeholder={t.sellingRate} value={form.sellingRate} onChange={e => setForm({ ...form, sellingRate: number(e.target.value) })}/><Input type="number" placeholder={t.lowStockLevel} value={form.lowStock} onChange={e => setForm({ ...form, lowStock: number(e.target.value) })}/><Input type="number" placeholder={t.wastagePercent} value={form.wastagePercent} onChange={e => setForm({ ...form, wastagePercent: number(e.target.value) })}/><Button onClick={save}>{editId ? t.save : t.add}</Button>{editId && <Button variant="secondary" onClick={() => { setForm(blank); setEditId('') }}>{t.cancel}</Button>}</div></Card><Card className="pad"><h2>Import / Export Vegetables</h2><p className="muted">CSV columns: name, hindiName, category, unit, barcode, purchaseRate, sellingRate, stock, lowStock, wastagePercent</p><div className="toolbar"><Button variant="secondary" onClick={downloadTemplate}>Download Import Template</Button><label className="btn secondary">Import CSV<input type="file" accept=".csv,text/csv" hidden onChange={e => importVegetables(e.target.files?.[0])}/></label><Button variant="secondary" onClick={() => exportCsv(s.vegetables, 'vegetables.csv')}>{t.export}</Button></div>{importMessage && <p className="muted">{importMessage}</p>}</Card><div className="toolbar"><Input placeholder={t.searchVegetable} value={q} onChange={e => setQ(e.target.value)}/></div><Card><div className="table-wrap"><table><thead><tr><th>{t.name}</th><th>{t.stock}</th><th>{t.purchaseRate}</th><th>{t.sellingRate}</th><th>{t.lowStock}</th><th>Actions</th></tr></thead><tbody>{list.map(v => <tr key={v.id}><td><b>{v.hindiName || v.name}</b><small>{v.name} • {v.category} • {v.barcode}</small></td><td className={v.stock <= v.lowStock ? 'red bold' : 'bold'}>{v.stock} {v.unit}</td><td>{money(v.purchaseRate)}</td><td>{money(v.sellingRate)}</td><td>{v.lowStock} {v.unit}</td><td className="actions"><Button variant="secondary" onClick={() => { setForm(v); setEditId(v.id) }}>{t.edit}</Button><Button variant="danger" onClick={() => deleteVegetable(v)}>{t.delete}</Button></td></tr>)}</tbody></table></div></Card></div>
+  return <div className="space">
+    <Card className="pad"><h2>{t.inventory}</h2><div className="form-grid labeled-form">
+      <Field label="English Name" hint="Example: Tomato"><Input placeholder="Tomato" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}/></Field>
+      <Field label="Hindi Name" hint="Example: टमाटर"><Input placeholder="टमाटर" value={form.hindiName} onChange={e => setForm({ ...form, hindiName: e.target.value })}/></Field>
+      <Field label="Category" hint="Vegetables / Fruits / Leafy / Roots"><Input placeholder="Vegetables" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}/></Field>
+      <Field label="Unit" hint="Editable: kg, g, piece, dozen, bunch, crate, packet, bag, etc."><Input list="unit-suggestions" placeholder="kg" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}/><datalist id="unit-suggestions">{units.map(u => <option key={u} value={u}/>)}</datalist></Field>
+      <Field label="Code / Barcode" hint="Optional short code for search"><Input placeholder="TOM" value={form.barcode} onChange={e => setForm({ ...form, barcode: e.target.value })}/></Field>
+      <Field label={`Current Stock (${form.unit || 'unit'})`} hint={`How much stock you have in ${form.unit || 'selected unit'}`}><Input type="number" placeholder="0" value={form.stock} onChange={e => setForm({ ...form, stock: number(e.target.value) })}/></Field>
+      <Field label={`Purchase Rate (₹/${form.unit || 'unit'})`} hint="Your buying rate from mandi"><Input type="number" placeholder="0" value={form.purchaseRate} onChange={e => setForm({ ...form, purchaseRate: number(e.target.value) })}/></Field>
+      <Field label={`Selling Rate (₹/${form.unit || 'unit'})`} hint="Customer selling rate"><Input type="number" placeholder="0" value={form.sellingRate} onChange={e => setForm({ ...form, sellingRate: number(e.target.value) })}/></Field>
+      <Field label={`Low Stock Alert (${form.unit || 'unit'})`} hint="Alert when stock reaches this level"><Input type="number" placeholder="0" value={form.lowStock} onChange={e => setForm({ ...form, lowStock: number(e.target.value) })}/></Field>
+      <Field label="Wastage %" hint="Expected spoilage percentage"><Input type="number" placeholder="5" value={form.wastagePercent} onChange={e => setForm({ ...form, wastagePercent: number(e.target.value) })}/></Field>
+      <div className="field-actions"><Button onClick={save}>{editId ? t.save : t.add}</Button>{editId && <Button variant="secondary" onClick={() => { setForm(blank); setEditId('') }}>{t.cancel}</Button>}</div>
+    </div></Card>
+
+    <Card className="pad"><h2>Import / Export Vegetables</h2><p className="muted">CSV columns: name, hindiName, category, unit, barcode, purchaseRate, sellingRate, stock, lowStock, wastagePercent</p><div className="toolbar"><Button variant="secondary" onClick={downloadTemplate}>Download Import Template</Button><label className="btn secondary">Import CSV<input type="file" accept=".csv,text/csv" hidden onChange={e => importVegetables(e.target.files?.[0])}/></label><Button variant="secondary" onClick={() => exportCsv(s.vegetables, 'vegetables.csv')}>{t.export}</Button></div>{importMessage && <p className="muted">{importMessage}</p>}</Card>
+    <div className="toolbar"><Input placeholder={t.searchVegetable} value={q} onChange={e => setQ(e.target.value)}/></div>
+    <Card><div className="table-wrap"><table><thead><tr><th>{t.name}</th><th>{t.stock}</th><th>{t.purchaseRate}</th><th>{t.sellingRate}</th><th>{t.lowStock}</th><th>Actions</th></tr></thead><tbody>{list.map(v => <tr key={v.id}><td><b>{v.hindiName || v.name}</b><small>{v.name} • {v.category} • {v.barcode}</small></td><td className={v.stock <= v.lowStock ? 'red bold' : 'bold'}>{v.stock} {v.unit}</td><td>{money(v.purchaseRate)}/{v.unit}</td><td>{money(v.sellingRate)}/{v.unit}</td><td>{v.lowStock} {v.unit}</td><td className="actions"><Button variant="secondary" onClick={() => { setForm(v); setEditId(v.id) }}>{t.edit}</Button><Button variant="danger" onClick={() => deleteVegetable(v)}>{t.delete}</Button></td></tr>)}</tbody></table></div></Card></div>
 }

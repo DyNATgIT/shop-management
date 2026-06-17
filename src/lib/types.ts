@@ -1,5 +1,5 @@
 export type Language = 'en' | 'hi'
-export type Unit = 'kg' | 'g' | 'piece' | 'dozen' | 'bunch' | 'crate'
+export type Unit = string
 export type PaymentMode = 'Cash' | 'UPI' | 'Card' | 'Credit' | 'Mixed'
 export type StockLogType = 'OPENING' | 'PURCHASE' | 'SALE' | 'WASTAGE' | 'RETURN' | 'ADJUSTMENT'
 
@@ -75,7 +75,9 @@ export interface CartItem {
   name: string
   hindiName: string
   unit: Unit
+  stockUnit?: Unit
   qty: number
+  stockQty?: number
   rate: number
   discount: number
 }

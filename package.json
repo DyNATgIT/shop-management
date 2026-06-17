@@ -1,6 +1,6 @@
 {
   "name": "vegetable-shop-manager",
-  "version": "2.2.3",
+  "version": "2.2.1",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -20,11 +20,13 @@
     "better-sqlite3": "^12.10.0",
     "jspdf": "^2.5.1",
     "lucide-react": "^0.378.0",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

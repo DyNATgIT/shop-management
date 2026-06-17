@@ -39,7 +39,7 @@ export function validateCartItems(items: CartItem[]) {
     if (qtyError) errors.push(qtyError)
     if (rateError) errors.push(rateError)
     if (discountError) errors.push(discountError)
-    if (item.discount > item.qty * item.rate) errors.push(`${label} discount cannot be greater than item amount.`)
+    if (item.discount > (item.stockQty ?? item.qty) * item.rate) errors.push(`${label} discount cannot be greater than item amount.`)
   })
   return errors
 }

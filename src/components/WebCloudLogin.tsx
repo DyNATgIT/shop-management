@@ -10,10 +10,25 @@ const env = (import.meta as any).env || {}
 const ENV_SUPABASE_URL = env.VITE_SUPABASE_URL || ''
 const ENV_SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || ''
 const roleRank: Record<string, number> = { staff: 1, manager: 2, owner: 3 }
-const modeDescription = {
-  owner: 'Full control for owner: reports, settings, sync and security.',
-  manager: 'Operations for manager: stock, purchase, rates, billing and reports.',
-  staff: 'Fast counter access: billing, customers, payments and wastage.'
+const modeCopy = {
+  owner: {
+    title: 'Owner Login',
+    label: 'Owner',
+    description: 'Complete control for reports, settings, sync, team and security.',
+    bullets: ['Full reports', 'Cloud sync', 'Team control']
+  },
+  manager: {
+    title: 'Manager Login',
+    label: 'Manager',
+    description: 'Operate the shop: stock, rates, purchases, billing and reports.',
+    bullets: ['Stock & rates', 'Purchases', 'Reports']
+  },
+  staff: {
+    title: 'Staff Login',
+    label: 'Staff',
+    description: 'Fast counter access for billing, payments, customers and wastage.',
+    bullets: ['Fast billing', 'Payments', 'Wastage']
+  }
 }
 
 function getShop(row: any) {
@@ -27,10 +42,6 @@ function shopTime(row: any) {
 
 function dedupeMemberships(rows: any[]) {
   if (!rows.length) return []
-
-  // Supabase can return duplicate memberships / duplicate shop rows while testing.
-  // For the website login we intentionally show ONE active shop: the newest one.
-  // This prevents confusing choices like Vegetables Hub / Vegetables Hub / Vegetables Hub.
   const newest = [...rows].sort((a, b) => shopTime(b) - shopTime(a))[0]
   return newest ? [newest] : []
 }
@@ -51,9 +62,10 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
   const [message, setMessage] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const uniqueMemberships = useMemo(() => dedupeMemberships(memberships), [memberships])
+  const activeMode = modeCopy[selectedMode]
 
   const signIn = async () => {
-    setMessage(`Signing in as ${selectedMode}...`)
+    setMessage(`Signing in as ${activeMode.label}...`)
     try {
       const res = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/token?grant_type=password`, {
         method: 'POST',
@@ -69,7 +81,7 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
       setMemberships(rows)
       const firstAllowed = unique.find((row: any) => roleRank[row.role] >= roleRank[selectedMode])
       if (firstAllowed) setSelected(firstAllowed.shop_id)
-      setMessage(unique.length ? `Signed in. ${rows.length !== unique.length ? 'Duplicate shop names were simplified to one option. ' : ''}Choose a shop to continue in ${selectedMode} mode.` : 'Signed in, but no shop membership found. If you are staff/manager, enter invite code below.')
+      setMessage(unique.length ? `Signed in. ${rows.length !== unique.length ? 'Duplicate shop names were simplified to one option. ' : ''}Choose a shop to continue in ${activeMode.label} mode.` : 'Signed in, but no shop membership found. If you are staff/manager, enter invite code below.')
     } catch (error) {
       setMessage(`Sign in failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
@@ -82,7 +94,7 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
       setMessage(`Access denied. This account is ${row.role}, so it cannot open ${selectedMode} mode.`)
       return
     }
-    setMessage(`Loading ${selectedMode} mode...`)
+    setMessage(`Loading ${activeMode.label} mode...`)
     try {
       const settings = { ...session, cloudShopId: row.shop_id, cloudRole: selectedMode, actualCloudRole: row.role, cloudSyncEnabled: true }
       const loaded = await fetchCloudState({ ...demoState, ...currentState, settings: { ...demoState.settings, ...currentState.settings, ...settings } }, settings)
@@ -115,5 +127,59 @@ export default function WebCloudLogin({ currentState, onLoad }: { currentState: 
     }
   }
 
-  return <div className="web-login-page"><div className="login-ambient login-ambient-a"></div><div className="login-ambient login-ambient-b"></div><Card className="pad web-login-card premium-login"><div className="login-kicker">Fresh counter cloud access</div><h1>Vegetable Shop Manager</h1><p className="muted">Choose your login mode. Your actual Supabase shop role is verified before the app opens.</p><div className="role-select-grid">{(['owner', 'manager', 'staff'] as LoginMode[]).map(mode => <button key={mode} className={selectedMode === mode ? 'active' : ''} onClick={() => setSelectedMode(mode)}><b>{mode[0].toUpperCase() + mode.slice(1)} Login</b><small>{modeDescription[mode]}</small></button>)}</div>{(!ENV_SUPABASE_URL || !ENV_SUPABASE_ANON_KEY) && <div className="setup-warning"><b>Developer setup needed</b><small>Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel to hide these technical fields.</small></div>}<div className="form-grid">{!ENV_SUPABASE_URL && <Input value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} placeholder="Supabase URL"/>}{!ENV_SUPABASE_ANON_KEY && <Input value={anonKey} onChange={e => setAnonKey(e.target.value)} placeholder="Supabase anon key"/>}<Input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"/><Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"/><Button onClick={signIn}>Sign In as {selectedMode}</Button></div>{session && <div className="invite-join"><h3>Have an invite code?</h3><p className="muted">Staff and manager users can join a shop using an invite code from the owner.</p><div className="web-shop-select"><Input value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())} placeholder="STAFF-XXXXXXXXXX or MANAGER-XXXXXXXXXX"/><Button variant="secondary" onClick={acceptInvite}>Join Shop</Button></div></div>}{uniqueMemberships.length > 0 && <div className="web-shop-select"><Select value={selected} onChange={e => setSelected(e.target.value)}>{uniqueMemberships.map(m => <option key={m.shop_id} value={m.shop_id}>{shopName(m)} — actual role: {m.role}</option>)}</Select><Button onClick={loadShop}>Continue as {selectedMode}</Button></div>}{memberships.length > uniqueMemberships.length && <p className="muted">Duplicate shops with the same name were simplified. The newest matching shop is shown.</p>}<p className="muted">{message}</p></Card></div>
+  return <div className="web-login-page fresh-login-page">
+    <div className="login-ambient login-ambient-a"></div>
+    <div className="login-ambient login-ambient-b"></div>
+    <div className="login-ambient login-ambient-c"></div>
+    <div className="fresh-login-shell">
+      <section className="fresh-login-hero">
+        <div className="login-kicker">Cloud POS access</div>
+        <h1>Run your vegetable shop from counter to cloud.</h1>
+        <p>Fast billing for staff, stock control for managers, and reports/security for owners — all separated by real Supabase roles.</p>
+        <div className="fresh-login-stats">
+          <div><b>3</b><span>secure roles</span></div>
+          <div><b>80mm</b><span>receipt ready</span></div>
+          <div><b>SQLite</b><span>desktop backup</span></div>
+        </div>
+        <div className="fresh-login-flow">
+          <span>Sign in</span><i></i><span>Verify role</span><i></i><span>Open shop</span>
+        </div>
+      </section>
+
+      <Card className="pad web-login-card fresh-login-card">
+        <div className="login-card-head">
+          <div>
+            <div className="login-kicker subtle">Secure login</div>
+            <h2>{activeMode.title}</h2>
+            <p className="muted">{activeMode.description}</p>
+          </div>
+        </div>
+
+        <div className="role-select-grid refined-roles">
+          {(['owner', 'manager', 'staff'] as LoginMode[]).map(mode => <button key={mode} className={selectedMode === mode ? 'active' : ''} onClick={() => setSelectedMode(mode)}>
+            <span className="role-dot">{mode === 'owner' ? 'O' : mode === 'manager' ? 'M' : 'S'}</span>
+            <b>{modeCopy[mode].label}</b>
+            <small>{modeCopy[mode].bullets.join(' • ')}</small>
+          </button>)}
+        </div>
+
+        {(!ENV_SUPABASE_URL || !ENV_SUPABASE_ANON_KEY) && <div className="setup-warning"><b>Developer setup needed</b><small>Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel to hide technical fields.</small></div>}
+
+        <div className="login-form-grid">
+          {!ENV_SUPABASE_URL && <Input value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} placeholder="Supabase URL"/>}
+          {!ENV_SUPABASE_ANON_KEY && <Input value={anonKey} onChange={e => setAnonKey(e.target.value)} placeholder="Supabase anon key"/>}
+          <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"/>
+          <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" onKeyDown={e => { if (e.key === 'Enter') signIn() }} />
+          <Button className="login-primary" onClick={signIn}>Sign In as {activeMode.label}</Button>
+        </div>
+
+        {session && <div className="invite-join"><h3>Have an invite code?</h3><p className="muted">Staff and manager users can join a shop using an invite code from the owner.</p><div className="web-shop-select"><Input value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())} placeholder="STAFF-XXXXXXXXXX or MANAGER-XXXXXXXXXX"/><Button variant="secondary" onClick={acceptInvite}>Join Shop</Button></div></div>}
+
+        {uniqueMemberships.length > 0 && <div className="shop-picker-card"><div><b>Choose shop</b><small>Only the latest matching shop is shown to avoid duplicates.</small></div><div className="web-shop-select"><Select value={selected} onChange={e => setSelected(e.target.value)}>{uniqueMemberships.map(m => <option key={m.shop_id} value={m.shop_id}>{shopName(m)} — actual role: {m.role}</option>)}</Select><Button onClick={loadShop}>Continue</Button></div></div>}
+
+        {memberships.length > uniqueMemberships.length && <p className="muted">Duplicate shops with the same name were simplified. The newest matching shop is shown.</p>}
+        {message && <div className="login-message">{message}</div>}
+      </Card>
+    </div>
+  </div>
 }

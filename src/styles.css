@@ -83,3 +83,196 @@ main{max-width:1320px;margin:auto;padding:24px 16px 42px}.space{display:flex;fle
 @media(min-width:1120px){.head-actions{justify-content:flex-start;align-items:flex-start;gap:8px}.head-actions .btn{min-height:36px;padding:8px 10px;font-size:12px}.version-pill,.offline,.mode-badge{font-size:11px;padding:7px 9px}.topbar{overflow:hidden}.head-row{padding-bottom:10px}}
 @media(max-width:900px){.head-actions{justify-content:flex-start}.version-pill,.offline,.mode-badge{font-size:11px;padding:7px 9px}}
 .field-wrap{display:flex;flex-direction:column;gap:6px}.field-wrap>span{font-size:12px;font-weight:900;color:#47634d;text-transform:uppercase;letter-spacing:.04em}.field-wrap small{font-size:11px;color:var(--muted);line-height:1.25}.field-actions{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.labeled-form{align-items:start}
+.login-ambient{position:fixed;border-radius:999px;filter:blur(55px);opacity:.55;pointer-events:none}.login-ambient-a{width:320px;height:320px;left:8%;top:8%;background:#a3e635}.login-ambient-b{width:360px;height:360px;right:8%;bottom:8%;background:#16a34a}.premium-login{position:relative;overflow:hidden}.premium-login:after{content:"";position:absolute;inset:auto -20% -35% -20%;height:180px;background:radial-gradient(circle,#dcfce7,transparent 70%);pointer-events:none}.login-kicker{display:inline-flex;border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+
+/* v2.3 visual polish — premium fresh POS interface inspired by modern product/UI galleries.
+   Practical rule: keep POS fast, readable, and lightweight. */
+:root{
+  --brand-1:#0f7a3b;
+  --brand-2:#22c55e;
+  --brand-3:#bef264;
+  --cream:#fffdf4;
+  --glass:rgba(255,255,255,.72);
+  --glass-strong:rgba(255,255,255,.9);
+  --ring:rgba(34,197,94,.22);
+}
+body{
+  background:
+    radial-gradient(circle at 12% 6%, rgba(190,242,100,.42), transparent 28rem),
+    radial-gradient(circle at 92% 16%, rgba(34,197,94,.22), transparent 30rem),
+    radial-gradient(circle at 72% 92%, rgba(251,191,36,.16), transparent 26rem),
+    linear-gradient(135deg,#f7fee7 0%,#f8fff6 42%,#fff7ed 100%) !important;
+}
+body:before{opacity:.9;filter:blur(95px) saturate(1.18)}
+body:after{opacity:.16;background-size:38px 38px}
+
+.topbar{
+  background:linear-gradient(145deg,rgba(255,255,255,.82),rgba(244,255,236,.68)) !important;
+  border-color:rgba(255,255,255,.78) !important;
+  box-shadow:0 22px 70px rgba(20,83,45,.14), inset 0 1px 0 rgba(255,255,255,.8) !important;
+}
+.head-row h1{
+  background:linear-gradient(90deg,#052e16,#16a34a,#84cc16) !important;
+  -webkit-background-clip:text !important;background-clip:text !important;color:transparent !important;
+  letter-spacing:-.055em !important;
+}
+.head-row p{color:#5c715f !important;font-weight:650}
+
+.card{
+  background:linear-gradient(145deg,rgba(255,255,255,.84),rgba(248,255,242,.66)) !important;
+  border:1px solid rgba(255,255,255,.82) !important;
+  box-shadow:0 18px 55px rgba(18,78,38,.1), inset 0 1px 0 rgba(255,255,255,.75) !important;
+}
+.card:hover{box-shadow:0 24px 70px rgba(18,78,38,.13), inset 0 1px 0 rgba(255,255,255,.82) !important}
+.card h2{font-weight:950;letter-spacing:-.04em;color:#102016}
+.muted{color:#657668 !important}
+
+.btn{
+  background:linear-gradient(135deg,#16a34a,#65a30d) !important;
+  box-shadow:0 14px 30px rgba(22,163,74,.24), inset 0 1px 0 rgba(255,255,255,.22) !important;
+  letter-spacing:-.01em;
+}
+.btn:hover{transform:translateY(-2px);filter:saturate(1.08)}
+.btn.secondary{
+  background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(240,253,244,.76)) !important;
+  color:#174022 !important;
+  border-color:rgba(22,101,52,.16) !important;
+  box-shadow:0 10px 24px rgba(20,83,45,.08) !important;
+}
+.btn.danger{background:linear-gradient(135deg,#ef4444,#b91c1c) !important}
+
+.input{
+  background:rgba(255,255,255,.88) !important;
+  border-color:rgba(20,83,45,.16) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 4px 16px rgba(20,83,45,.04) !important;
+}
+.input:focus{border-color:#22c55e !important;box-shadow:0 0 0 4px var(--ring), inset 0 1px 0 rgba(255,255,255,.95) !important}
+
+nav button{font-weight:900;letter-spacing:-.015em;position:relative}
+nav button.active{color:#064e3b !important;background:linear-gradient(90deg,rgba(220,252,231,.98),rgba(255,255,255,.66)) !important}
+nav button.active:after{content:"";position:absolute;right:10px;top:50%;width:7px;height:7px;border-radius:999px;background:#22c55e;transform:translateY(-50%);box-shadow:0 0 16px #22c55e}
+
+.metric{background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(236,253,245,.68)) !important}
+.metric h3{font-weight:950;color:#0f2f19}
+.metric p{color:#5f745f !important}
+.dot{box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 14px 28px rgba(22,163,74,.14) !important}
+
+.quick-grid button{
+  background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(236,253,245,.84)) !important;
+  border-color:rgba(22,101,52,.14) !important;
+  box-shadow:0 12px 28px rgba(20,83,45,.1) !important;
+}
+.quick-grid button:hover{transform:translateY(-3px) scale(1.01);box-shadow:0 22px 44px rgba(22,163,74,.18) !important}
+.quick-grid button b{font-size:17px;color:#12351e}
+.quick-grid button span{color:#0f7a3b !important}
+.category-tabs button.active{background:linear-gradient(135deg,#dcfce7,#bef264) !important;border-color:#86efac !important}
+
+.table-wrap table{border-spacing:0 0}
+th{background:linear-gradient(180deg,rgba(241,245,249,.86),rgba(240,253,244,.72)) !important;color:#49624e !important}
+tbody tr:hover td{background:rgba(236,253,245,.72) !important}
+
+.grand{color:#0f2f19}.grand b{color:#0f7a3b}.grand-total{color:#0f7a3b}
+.status-pill{box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
+
+/* Premium website login */
+.web-login-page{
+  background:
+    radial-gradient(circle at 20% 12%, rgba(190,242,100,.55), transparent 22rem),
+    radial-gradient(circle at 88% 24%, rgba(34,197,94,.32), transparent 24rem),
+    linear-gradient(135deg,#f7fee7,#fffdf4) !important;
+}
+.web-login-card{
+  border-radius:32px !important;
+  padding:30px !important;
+  box-shadow:0 32px 110px rgba(20,83,45,.18), inset 0 1px 0 rgba(255,255,255,.82) !important;
+}
+.web-login-card h1{font-size:42px !important;line-height:1 !important;letter-spacing:-.07em !important;background:linear-gradient(90deg,#052e16,#16a34a,#84cc16);-webkit-background-clip:text;background-clip:text;color:transparent}
+.role-select-grid button{
+  min-height:148px;
+  background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(240,253,244,.78)) !important;
+  box-shadow:0 12px 32px rgba(20,83,45,.1);
+  position:relative;overflow:hidden;
+}
+.role-select-grid button:before{content:"";position:absolute;right:-30px;top:-30px;width:92px;height:92px;border-radius:999px;background:rgba(190,242,100,.28)}
+.role-select-grid button.active{box-shadow:0 24px 60px rgba(22,163,74,.22) !important;transform:translateY(-2px)}
+.role-select-grid button b{font-size:18px !important}
+.login-kicker{box-shadow:0 10px 24px rgba(22,163,74,.12)}
+
+@media(min-width:1120px){
+  .topbar{width:304px !important}
+  main{margin-left:340px !important}
+}
+@media(max-width:720px){.web-login-card h1{font-size:30px !important}.role-select-grid button{min-height:auto}}
+
+/* FreshOS final polish pass: premium, practical vegetable-shop POS UI. */
+:root{
+  --fresh-bg:#f7fee7;
+  --fresh-bg-2:#fffdf4;
+  --fresh-leaf:#16a34a;
+  --fresh-deep:#052e16;
+  --fresh-lime:#bef264;
+  --fresh-card:rgba(255,255,255,.82);
+  --fresh-border:rgba(20,83,45,.14);
+}
+
+/* Better app shell depth */
+.app{isolation:isolate}
+main{animation:softPageIn .28s ease both}
+@keyframes softPageIn{from{opacity:.0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Sidebar command center */
+@media(min-width:1120px){
+  .topbar:before{content:"";position:absolute;left:18px;right:18px;top:12px;height:4px;border-radius:999px;background:linear-gradient(90deg,#16a34a,#bef264,#f59e0b);opacity:.85}
+  .head-row{padding-top:26px!important}
+  nav button{transition:transform .16s ease, background .16s ease, color .16s ease}
+  nav button:hover{transform:translateX(2px)}
+  nav button svg{filter:drop-shadow(0 4px 8px rgba(22,163,74,.12))}
+}
+
+/* Better page cards */
+.card{transform:translateZ(0)}
+.card h2:only-child{margin-bottom:0}
+.section-head{align-items:center}
+.section-head h2{font-size:22px}
+
+/* POS cart panel */
+.sticky-total{border:1px solid rgba(22,163,74,.22)!important;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(240,253,244,.78))!important}
+.sticky-total .grand{background:linear-gradient(135deg,#dcfce7,#f7fee7);border:1px solid #bbf7d0;border-radius:18px;padding:14px;margin:12px 0;color:#052e16}
+.sticky-total .grand b{font-size:30px;color:#0f7a3b}
+
+/* Better role/login cards */
+.role-select-grid button{outline:none}
+.role-select-grid button.active:after{content:"Selected";position:absolute;right:12px;top:12px;border-radius:999px;background:#16a34a;color:white;font-size:10px;font-weight:900;padding:5px 8px;text-transform:uppercase;letter-spacing:.06em}
+.web-login-card .form-grid{margin-top:14px}
+.web-login-card .btn{min-width:150px}
+
+/* Improve inventory labeled form */
+.field-wrap{background:rgba(255,255,255,.44);border:1px solid rgba(20,83,45,.08);border-radius:18px;padding:10px}
+.field-wrap:focus-within{border-color:#86efac;background:rgba(255,255,255,.72);box-shadow:0 0 0 4px rgba(34,197,94,.08)}
+.field-wrap .input{box-shadow:none!important;background:rgba(255,255,255,.86)!important}
+
+/* Tables feel more app-like */
+.table-wrap{border-radius:18px}
+thead th:first-child{border-top-left-radius:14px}thead th:last-child{border-top-right-radius:14px}
+tbody tr:last-child td:first-child{border-bottom-left-radius:14px}tbody tr:last-child td:last-child{border-bottom-right-radius:14px}
+
+/* Status and security panels */
+.status-grid>div,.count-grid>div,.cloud-facts>div,.checklist-grid>div,.guide-steps>div{transition:transform .16s ease, box-shadow .16s ease}
+.status-grid>div:hover,.count-grid>div:hover,.cloud-facts>div:hover,.checklist-grid>div:hover,.guide-steps>div:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(20,83,45,.08)}
+
+/* Better mobile login and bottom nav */
+@media(max-width:900px){
+  nav{overflow-x:auto;scroll-snap-type:x mandatory}
+  nav button{scroll-snap-align:center;min-width:max-content}
+  .web-login-page{padding-bottom:28px}
+}
+
+/* Accessibility: reduce motion */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
+}
+
+/* Login redesign v2 — focused split-screen role login */
+.fresh-login-page{min-height:100vh;padding:28px;display:grid;place-items:center;overflow:hidden}.login-ambient-c{width:260px;height:260px;left:44%;bottom:5%;background:#f59e0b;opacity:.18}.fresh-login-shell{width:min(1180px,100%);display:grid;grid-template-columns:1fr 520px;gap:24px;align-items:stretch;position:relative;z-index:1}.fresh-login-hero{border-radius:34px;padding:34px;min-height:640px;background:linear-gradient(145deg,rgba(5,46,22,.94),rgba(13,86,45,.88));color:white;box-shadow:0 34px 110px rgba(5,46,22,.24);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between}.fresh-login-hero:before{content:"";position:absolute;inset:-20%;background:radial-gradient(circle at 20% 15%,rgba(190,242,100,.42),transparent 26rem),radial-gradient(circle at 80% 70%,rgba(34,197,94,.36),transparent 24rem);filter:blur(20px)}.fresh-login-hero:after{content:"";position:absolute;right:-90px;bottom:-90px;width:280px;height:280px;border-radius:50%;border:42px solid rgba(190,242,100,.16)}.fresh-login-hero>*{position:relative}.fresh-login-hero h1{font-size:58px;line-height:.95;letter-spacing:-.075em;margin:0;max-width:760px}.fresh-login-hero p{font-size:17px;line-height:1.65;color:rgba(255,255,255,.78);max-width:620px}.fresh-login-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.fresh-login-stats div{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);border-radius:20px;padding:15px;backdrop-filter:blur(10px)}.fresh-login-stats b{display:block;font-size:24px}.fresh-login-stats span{font-size:12px;color:rgba(255,255,255,.72);text-transform:uppercase;letter-spacing:.06em;font-weight:900}.fresh-login-flow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:rgba(255,255,255,.8);font-weight:900}.fresh-login-flow i{width:34px;height:1px;background:rgba(255,255,255,.28)}.fresh-login-card{border-radius:34px!important;padding:26px!important;background:rgba(255,255,255,.86)!important}.login-card-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px}.login-card-head h2{font-size:34px;margin:2px 0 6px;letter-spacing:-.06em}.login-kicker.subtle{margin-bottom:4px;background:#f0fdf4}.refined-roles{grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 16px}.refined-roles button{min-height:116px!important;padding:14px!important;border-radius:20px!important}.role-dot{width:34px;height:34px;border-radius:14px;background:#ecfdf5;color:#166534;display:grid;place-items:center;font-weight:950;margin-bottom:9px}.refined-roles button.active .role-dot{background:#16a34a;color:white}.login-form-grid{display:grid;grid-template-columns:1fr;gap:11px}.login-primary{width:100%;min-height:48px;font-size:15px}.shop-picker-card{border:1px solid rgba(34,197,94,.22);background:#f0fdf4;border-radius:20px;padding:14px;margin-top:14px}.shop-picker-card b{display:block;color:#14532d}.shop-picker-card small{display:block;color:var(--muted);margin:3px 0 10px}.login-message{margin-top:14px;border:1px solid var(--line);background:rgba(255,255,255,.72);border-radius:16px;padding:12px;color:#21442a;font-weight:750;line-height:1.4}.premium-login{max-width:none}
+@media(max-width:980px){.fresh-login-shell{grid-template-columns:1fr}.fresh-login-hero{min-height:auto}.fresh-login-hero h1{font-size:40px}.fresh-login-stats{grid-template-columns:1fr 1fr 1fr}}
+@media(max-width:620px){.fresh-login-page{padding:12px}.fresh-login-hero{display:none}.fresh-login-card{padding:18px!important;border-radius:26px!important}.login-card-head h2{font-size:28px}.refined-roles{grid-template-columns:1fr}.refined-roles button{min-height:auto!important}.web-shop-select{grid-template-columns:1fr}.fresh-login-stats{grid-template-columns:1fr}}
